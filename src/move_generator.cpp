@@ -20,7 +20,6 @@ std::vector<Move> MoveGenerator::generatePseudoLegalMoves(Position position)
 
 void MoveGenerator::generateBishopPseudoLegalMoves(std::vector<Move>& moveVector, Position position) {
     uint64_t current_player_bishops = position.getPieceSet(position.current_player, Board::bishops);
-    std::cout << (singleQueenMoves(35, position) & ~position.getPieceSet(Board::white)) << "\n";
 }
 
 uint64_t MoveGenerator::southFill(uint64_t square) {
@@ -171,10 +170,7 @@ uint64_t MoveGenerator::singleBishopMoves(int pos, Position position)
 {
     uint64_t result = bishopAttacksEmptyBoard[pos];
     for(uint64_t b = position.getAllPieces() & bishopBlockersAndBeyond[pos]; b != 0; b &= (b-1)) {
-        std::cout << b << " " << std::countr_zero(b) << "\n";
         int sq = std::countr_zero(b);
-        std::cout << pos << " " << sq << "\n";
-        std::cout << behind[pos][sq] << "\n";
         result &= ~behind[pos][sq];
     }
     return result;
@@ -184,10 +180,7 @@ uint64_t MoveGenerator::singleRookMoves(int pos, Position position)
 {
     uint64_t result = rookAttacksEmptyBoard[pos];
     for(uint64_t b = position.getAllPieces() & rookBlockersAndBeyond[pos]; b != 0; b &= (b-1)) {
-        std::cout << b << " " << std::countr_zero(b) << "\n";
         int sq = std::countr_zero(b);
-        std::cout << pos << " " << sq << "\n";
-        std::cout << behind[pos][sq] << "\n";
         result &= ~behind[pos][sq];
     }
     return result;
@@ -197,10 +190,7 @@ uint64_t MoveGenerator::singleQueenMoves(int pos, Position position)
 {
     uint64_t result = queenAttacksEmptyBoard[pos];
     for(uint64_t b = position.getAllPieces() & queenBlockersAndBeyond[pos]; b != 0; b &= (b-1)) {
-        std::cout << b << " " << std::countr_zero(b) << "\n";
         int sq = std::countr_zero(b);
-        std::cout << pos << " " << sq << "\n";
-        std::cout << behind[pos][sq] << "\n";
         result &= ~behind[pos][sq];
     }
     return result;
