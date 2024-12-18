@@ -7,6 +7,8 @@ MoveGenerator::MoveGenerator()
     generateBishopAttacksArray();
     generateRookAttacksArray();
     generateQueenAttacksArray();
+    generateKnightAttacksArray();
+    generateKingAttacksArray();
     generateBehindArray();
 }
 
@@ -14,12 +16,27 @@ std::vector<Move> MoveGenerator::generatePseudoLegalMoves(Position position)
 {
     std::vector<Move> pseudo_legal_moves;
     generateBishopPseudoLegalMoves(pseudo_legal_moves, position);
-    uint64_t a = eastFill(0);
     return pseudo_legal_moves;
 }
 
 void MoveGenerator::generateBishopPseudoLegalMoves(std::vector<Move>& moveVector, Position position) {
-    uint64_t current_player_bishops = position.getPieceSet(position.current_player, Board::bishops);
+    uint64_t currentPlayerBishops = position.getPieceSet(position.getCurrentPlayer(), Board::bishops);
+    while(currentPlayerBishops) {
+        uint32_t bishop = std::countr_zero(currentPlayerBishops);
+        uint32_t fromSquare = squareForMove(bishop);
+        uint64_t bishopMoves = position.getPieceSet(position.getCurrentPlayer()) ^ singleBishopMoves(bishop, position);
+        uint64_t bishopAttacks = position.getPieceSet(position.getOtherPlayer()) ^ bishopMoves;
+        bishopMoves &= ~bishopAttacks;
+        while (bishopAttacks){
+            moveVector.push_back({fromSquare, squareForMove(std::countr_zero(bishopAttacks)), Move::capture});
+            bishopAttacks &= bishopAttacks - 1;
+        }
+        while (bishopMoves){
+            moveVector.push_back({fromSquare, squareForMove(std::countr_zero(bishopMoves)), Move::quiet});
+            bishopMoves &= bishopMoves - 1;
+        }
+        currentPlayerBishops &= currentPlayerBishops - 1;
+    }
 }
 
 uint64_t MoveGenerator::southFill(uint64_t square) {
@@ -111,6 +128,32 @@ uint64_t MoveGenerator::rookAttacks(uint64_t square)
     return square ^ (southFill(square) | northFill(square) | eastFill(square) | westFill(square));
 }
 
+uint64_t MoveGenerator::knightAttacks(uint64_t square)
+{
+    uint64_t result = square << 6;
+    result &= square << 10;
+    result &= square << 15;
+    result &= square << 17;
+    result &= square >> 10;
+    result &= square >> 15;
+    result &= square >> 17;
+    result &= square >> 6;
+    return result;
+}
+
+uint64_t MoveGenerator::kingAttacks(uint64_t square)
+{
+    uint64_t result = square << 1;
+    result &= square << 7;
+    result &= square << 8;
+    result &= square << 9;
+    result &= square >> 1;
+    result &= square >> 7;
+    result &= square >> 8;
+    result &= square >> 9;
+    return result;
+}
+
 void MoveGenerator::generateBishopAttacksArray()
 {
     for(int i = 0; i < 64; ++i) {
@@ -132,6 +175,20 @@ void MoveGenerator::generateQueenAttacksArray()
     for(int i = 0; i < 64; ++i) {
         queenAttacksEmptyBoard[i] = bishopAttacksEmptyBoard[i] | rookAttacksEmptyBoard[i];
         queenBlockersAndBeyond[i] = queenAttacksEmptyBoard[i] & notOuterLines;
+    }
+}
+
+void MoveGenerator::generateKnightAttacksArray()
+{
+    for(int i = 0; i < 64; ++i) {
+        knightAttacksEmptyBoard[i] = knightAttacks(uint64_t(1) << i);
+    }
+}
+
+void MoveGenerator::generateKingAttacksArray()
+{
+    for(int i = 0; i < 64; ++i) {
+        kingAttacksEmptyBoard[i] = kingAttacks(uint64_t(1) << i);
     }
 }
 
@@ -166,7 +223,7 @@ void MoveGenerator::generateBehindArray()
 }
 
 
-uint64_t MoveGenerator::singleBishopMoves(int pos, Position position)
+uint64_t MoveGenerator::singleBishopMoves(uint32_t pos, Position position)
 {
     uint64_t result = bishopAttacksEmptyBoard[pos];
     for(uint64_t b = position.getAllPieces() & bishopBlockersAndBeyond[pos]; b != 0; b &= (b-1)) {
@@ -176,7 +233,7 @@ uint64_t MoveGenerator::singleBishopMoves(int pos, Position position)
     return result;
 }
 
-uint64_t MoveGenerator::singleRookMoves(int pos, Position position)
+uint64_t MoveGenerator::singleRookMoves(uint32_t pos, Position position)
 {
     uint64_t result = rookAttacksEmptyBoard[pos];
     for(uint64_t b = position.getAllPieces() & rookBlockersAndBeyond[pos]; b != 0; b &= (b-1)) {
@@ -186,7 +243,7 @@ uint64_t MoveGenerator::singleRookMoves(int pos, Position position)
     return result;
 }
 
-uint64_t MoveGenerator::singleQueenMoves(int pos, Position position)
+uint64_t MoveGenerator::singleQueenMoves(uint32_t pos, Position position)
 {
     uint64_t result = queenAttacksEmptyBoard[pos];
     for(uint64_t b = position.getAllPieces() & queenBlockersAndBeyond[pos]; b != 0; b &= (b-1)) {
@@ -194,4 +251,19 @@ uint64_t MoveGenerator::singleQueenMoves(int pos, Position position)
         result &= ~behind[pos][sq];
     }
     return result;
+}
+
+uint64_t MoveGenerator::whiteDoublePushTargets(uint64_t pawns, Position position)
+{
+    return northOne(whiteSinglePushTargets(pawns, position)) & fourthRank & ~position.getAllPieces();
+}
+
+uint64_t MoveGenerator::blackDoublePushTargets(uint64_t pawns, Position position)
+{
+    return southOne(blackSinglePushTargets(pawns, position)) & fifthRank & ~position.getAllPieces();
+}
+
+uint32_t MoveGenerator::squareForMove(uint64_t square)
+{
+    return ((square % 8) + 1) >> 3 | ((square / 8) + 1);
 }
