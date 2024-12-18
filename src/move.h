@@ -2,6 +2,7 @@
 #define MOVE_H
 
 #include <cstdint>
+#include <iostream>
 
 class Move {
     /*
@@ -11,6 +12,8 @@ class Move {
     last 16 bits: not used for now
     */
     uint32_t move;
+
+
     public:
         enum flagEnum : uint32_t
         {
@@ -30,6 +33,12 @@ class Move {
             queenPromotionCapture = 15
         };
         Move(uint32_t from, uint32_t to, uint32_t flags);
+
+        std::string getLongAlgebraicNotation() const;
+
+
+
+        friend std::ostream &operator<<(std::ostream &os, const Move &move);
 };
 
 

@@ -8,6 +8,8 @@ int main(){
     emptyBoard.init();
     Position position(emptyBoard, Board::white);
     MoveGenerator generator;
-    generator.generatePseudoLegalMoves(position);
-
+    std::vector<Move> moves = generator.generatePseudoLegalMoves(position);
+    for(auto a: moves) {
+        std::cout << a << "\n";
+    }
 }
