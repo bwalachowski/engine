@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include "board.h"
 
 class Move {
     /*
@@ -12,6 +13,7 @@ class Move {
     last 16 bits: not used for now
     */
     uint32_t move;
+    Board::PieceEnum piece;
 
 
     public:
@@ -32,7 +34,7 @@ class Move {
             rookPromotionCapture = 14,
             queenPromotionCapture = 15
         };
-        Move(uint32_t from, uint32_t to, uint32_t flags);
+        Move(uint32_t from, uint32_t to, uint32_t flags, Board::PieceEnum piece);
 
         std::string getLongAlgebraicNotation() const;
 

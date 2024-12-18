@@ -11,6 +11,8 @@ class MoveGenerator {
     const uint64_t notABFile = 0xfcfcfcfcfcfcfcfc;
     const uint64_t notHFile = 0x7f7f7f7f7f7f7f7f;
     const uint64_t notGHFile = 0x3f3f3f3f3f3f3f3f;
+    const uint64_t not8Rank = 0xffffffffffffff;
+    const uint64_t not1Rank = 0xffffffffffffff00;
     const uint64_t notOuterLines = 0x7e7e7e7e7e7e00;
     const uint64_t fourthRank = 0xff000000;
     const uint64_t fifthRank = 0xff00000000;

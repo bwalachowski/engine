@@ -2,9 +2,8 @@
 #include <string>
 #include <bitset>
 
-Move::Move(uint32_t from, uint32_t to, uint32_t flags)
+Move::Move(uint32_t from, uint32_t to, uint32_t flags, Board::PieceEnum piece)  : piece(piece)
 {   
-    //std::cout << from << " " << to << " " << flags << "\n";
     move = ((flags & 0xf)<<12) | ((from & 0x3f)<<6) | (to & 0x3f);
 }
 
