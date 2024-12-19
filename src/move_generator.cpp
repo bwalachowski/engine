@@ -480,3 +480,23 @@ uint32_t MoveGenerator::squareForMove(int square)
 {   
     return ((square % 8) << 3) | (square / 8);
 }
+
+bool MoveGenerator::attacked(uint64_t square, Position position, Board::PieceEnum byColor)
+{
+    uint64_t pawns = position.getPieceSet(Board::pawns, byColor);
+    if(byColor == Board::white) {
+        if(blackPawnEastAttackTargets(square) & pawns || blackPawnWestAttackTargets(square) & pawns) return true;
+    }
+    else {
+        if(whitePawnEastAttackTargets(square) & pawns || whitePawnWestAttackTargets(square) & pawns) return true;
+    }
+    int square_int = std::countr_zero(square);
+    if(position.getPieceSet(Board::knights, byColor) & knightAttacksEmptyBoard[square_int]) return true;
+    if(position.getPieceSet(Board::kings, byColor) & kingAttacksEmptyBoard[square_int]) return true;
+    uint64_t bishopMoves = singleBishopMoves(square_int, position);
+    uint64_t queens = position.getPieceSet(Board::queens, byColor);
+    if(bishopMoves & (position.getPieceSet(Board::bishops, byColor) | queens)) return true;
+    uint64_t rookMoves = singleRookMoves(square_int, position);
+    if(rookMoves & (position.getPieceSet(Board::rooks, byColor) | queens)) return true;
+    return false;
+}

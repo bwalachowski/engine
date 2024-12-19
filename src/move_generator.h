@@ -81,6 +81,9 @@ class MoveGenerator {
 
     uint32_t squareForMove(int square);
 
+    bool attacked(uint64_t square, Position position, Board::PieceEnum byColor);
+
+
 public:
     MoveGenerator();
     std::vector<Move> generatePseudoLegalMoves(Position position);

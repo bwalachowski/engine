@@ -1,5 +1,6 @@
 #include "board.h"
 #include <iostream>
+#include "move_generator.h"
 
 void Board::init() {
     pieces[Board::white] = 0xffff;
