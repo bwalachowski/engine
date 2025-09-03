@@ -1,7 +1,7 @@
 #ifndef MOVE_H
 #define MOVE_H
 
-#include "board.h"
+#include "types.h"
 #include <cstdint>
 #include <iostream>
 
@@ -14,7 +14,7 @@ class Move
     last 16 bits: not used for now
     */
     uint32_t move;
-    Board::PieceEnum piece;
+    Types::PieceEnum piece;
 
 public:
     enum flagEnum : uint32_t
@@ -34,9 +34,15 @@ public:
         rookPromotionCapture = 14,
         queenPromotionCapture = 15
     };
-    Move(uint32_t from, uint32_t to, uint32_t flags, Board::PieceEnum piece);
+    Move(uint32_t from, uint32_t to, uint32_t flags, Types::PieceEnum piece);
+    Move() : move(0), piece(Types::pawns) {}; // null move
 
     std::string getLongAlgebraicNotation() const;
+    uint64_t getFromSquare() const;
+    uint64_t getToSquare() const;
+    uint32_t getFlags() const { return (move >> 12) & 0xf; }
+    Types::PieceEnum getPiece() const { return piece; }
+    bool isNull() const { return move == 0; }
 
     friend std::ostream &operator<<(std::ostream &os, const Move &move);
 };

@@ -5,13 +5,14 @@
 
 #include "move.h"
 #include "position.h"
+#include "types.h"
 
 class MoveGenerator
 {
-    const uint64_t notAFile = 0xfefefefefefefefe;
-    const uint64_t notABFile = 0xfcfcfcfcfcfcfcfc;
-    const uint64_t notHFile = 0x7f7f7f7f7f7f7f7f;
-    const uint64_t notGHFile = 0x3f3f3f3f3f3f3f3f;
+    const uint64_t notHFile = 0xfefefefefefefefe;
+    const uint64_t notGHFile = 0xfcfcfcfcfcfcfcfc;
+    const uint64_t notAFile = 0x7f7f7f7f7f7f7f7f;
+    const uint64_t notABFile = 0x3f3f3f3f3f3f3f3f;
     const uint64_t not8Rank = 0xffffffffffffff;
     const uint64_t not1Rank = 0xffffffffffffff00;
     const uint64_t notOuterLines = 0x7e7e7e7e7e7e00;
@@ -35,18 +36,18 @@ class MoveGenerator
 
     uint64_t behind[64][64];
 
-    void generateBishopPseudoLegalMoves(std::vector<Move> &moveVector,
-                                        Position position);
-    void generateRookPseudoLegalMoves(std::vector<Move> &moveVector,
-                                      Position position);
-    void generateQueenPseudoLegalMoves(std::vector<Move> &moveVector,
-                                       Position position);
-    void generateKnightPseudoLegalMoves(std::vector<Move> &moveVector,
-                                        Position position);
-    void generateKingPseudoLegalMoves(std::vector<Move> &moveVector,
-                                      Position position);
-    void generatePawnPseudoLegalMoves(std::vector<Move> &moveVector,
-                                      Position position);
+    void generateBishopPseudoLegalMoves(Move *moves,
+                                        Position position, int *n_moves);
+    void generateRookPseudoLegalMoves(Move *moves,
+                                      Position position, int *n_moves);
+    void generateQueenPseudoLegalMoves(Move *moves,
+                                       Position position, int *n_moves);
+    void generateKnightPseudoLegalMoves(Move *moves,
+                                        Position position, int *n_moves);
+    void generateKingPseudoLegalMoves(Move *moves,
+                                      Position position, int *n_moves);
+    void generatePawnPseudoLegalMoves(Move *moves,
+                                      Position position, int *n_moves);
 
     uint64_t southFill(uint64_t square);
     uint64_t northFill(uint64_t square);
@@ -92,20 +93,21 @@ class MoveGenerator
 
     uint64_t northOne(uint64_t board) { return board << 8; }
     uint64_t southOne(uint64_t board) { return board >> 8; }
-    uint64_t noWeOne(uint64_t board) { return (board << 7) & notHFile; }
-    uint64_t noEaOne(uint64_t board) { return (board << 9) & notAFile; }
-    uint64_t soWeOne(uint64_t board) { return (board >> 9) & notHFile; }
-    uint64_t soEaOne(uint64_t board) { return (board >> 7) & notAFile; }
+    uint64_t noWeOne(uint64_t board) { return (board << 9) & notHFile; }
+    uint64_t noEaOne(uint64_t board) { return (board << 7) & notAFile; }
+    uint64_t soWeOne(uint64_t board) { return (board >> 7) & notHFile; }
+    uint64_t soEaOne(uint64_t board) { return (board >> 9) & notAFile; }
 
     uint32_t squareForMove(int square);
 
-    bool attacked(uint64_t square, Position position, Board::PieceEnum byColor);
-    bool shortCastleLegal(Position position, Board::PieceEnum color);
-    bool longCastleLegal(Position position, Board::PieceEnum color);
+    bool attacked(uint64_t square, Position position, Types::PieceEnum byColor);
+    bool shortCastleLegal(Position position, Types::PieceEnum color);
+    bool longCastleLegal(Position position, Types::PieceEnum color);
+    int generatePseudoLegalMoves(Position position, Move *moves);
 
 public:
     MoveGenerator();
-    std::vector<Move> generatePseudoLegalMoves(Position position);
+    int generateLegalMoves(Position position, Move *moves);
 };
 
 #endif // #ifndef MOVE_GENERATOR_H
