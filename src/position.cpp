@@ -209,6 +209,8 @@ bool Position::makeMoveCheckIfLegal(Move move)
     enPassantSquare = newEnPassantSquare;
     castlingRights = newCastlingRights;
     depth += 1;
+    prevCastlingRights[depth] = castlingRights;
+    prevEnPassantSquares[depth] = enPassantSquare;
     Types::PieceEnum otherPlayer = currentPlayer;
     currentPlayer = (currentPlayer == Types::white) ? Types::black : Types::white;
     if (moveGen.attacked(newBoard.getPieceSet(otherPlayer, Types::kings), *this, currentPlayer))

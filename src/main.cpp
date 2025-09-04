@@ -10,7 +10,7 @@
 
 int main()
 {
-    Position position = Position("r4rk1/1pqb2pp/p1n1p3/2Np4/1P3n2/N1P5/P2Q1PPP/1B2RRK1 b - - 6 19");
+    Position position = Position("r3k2r/p1pp1pR1/1pn1pBp1/4Pn2/1b6/2N2P2/PP3K1P/6R1 b kq - 3 20");
     std::cout << position.getAllPieces() << std::endl;
     Engine engine;
     clock_t start = clock();

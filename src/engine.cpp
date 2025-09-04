@@ -3,7 +3,7 @@
 
 Move Engine::give_move(Position pos)
 {
-    int depth = 6;
+    int depth = 7;
     int n_moves;
     Move best_move;
     int max_eval = -100000;
@@ -15,19 +15,39 @@ Move Engine::give_move(Position pos)
     }
     for (int i = 0; i < n_moves; i++)
     {
-        if (pos.makeMoveCheckIfLegal(moves[depth][i]))
+        if (moves[depth][i].getFlags() == Move::capture)
         {
-            int eval = -negamax(-100000, 100000, pos, depth - 1);
-            if (eval > max_eval)
+            if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
-                max_eval = eval;
-                best_move = moves[depth][i];
+                int eval = -negamax(-100000, 100000, pos, depth - 1);
+                if (eval > max_eval)
+                {
+                    max_eval = eval;
+                    best_move = moves[depth][i];
+                }
+                std::cout << "move: " << moves[depth][i] << " eval:" << eval << std::endl;
             }
-            std::cout << "move: " << moves[depth][i] << " eval:" << eval << std::endl;
+            pos.unmakeMove(moves[depth][i]);
         }
-        pos.unmakeMove(moves[depth][i]);
     }
-    std::cout << "move: " << best_move << "Best eval: " << max_eval << std::endl;
+    for (int i = 0; i < n_moves; i++)
+    {
+        if (moves[depth][i].getFlags() != Move::capture)
+        {
+            if (pos.makeMoveCheckIfLegal(moves[depth][i]))
+            {
+                int eval = -negamax(-100000, 100000, pos, depth - 1);
+                if (eval > max_eval)
+                {
+                    max_eval = eval;
+                    best_move = moves[depth][i];
+                }
+                std::cout << "move: " << moves[depth][i] << " eval:" << eval << "\n";
+            }
+            pos.unmakeMove(moves[depth][i]);
+        }
+    }
+    std::cout << "move: " << best_move << "Best eval: " << max_eval << "\n";
     return best_move;
 }
 
@@ -46,26 +66,56 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
     int max_eval = -100000;
     for (int i = 0; i < n_moves; i++)
     {
-        if (pos.makeMoveCheckIfLegal(moves[depth][i]))
+        if (moves[depth][i].getFlags() == Move::capture)
         {
-            int eval = -negamax(-beta, -alpha, pos, depth - 1);
-            if (eval > max_eval)
+            if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
-                max_eval = eval;
-                if (eval > alpha)
+                int eval = -negamax(-beta, -alpha, pos, depth - 1);
+                if (eval > max_eval)
                 {
-                    alpha = eval;
+                    max_eval = eval;
+                    if (eval > alpha)
+                    {
+                        alpha = eval;
+                    }
+                }
+                pos.unmakeMove(moves[depth][i]);
+                if (eval >= beta)
+                {
+                    return max_eval;
                 }
             }
-            pos.unmakeMove(moves[depth][i]);
-            if (eval >= beta)
+            else
             {
-                return max_eval;
+                pos.unmakeMove(moves[depth][i]);
             }
         }
-        else
+    }
+    for (int i = 0; i < n_moves; i++)
+    {
+        if (moves[depth][i].getFlags() != Move::capture)
         {
-            pos.unmakeMove(moves[depth][i]);
+            if (pos.makeMoveCheckIfLegal(moves[depth][i]))
+            {
+                int eval = -negamax(-beta, -alpha, pos, depth - 1);
+                if (eval > max_eval)
+                {
+                    max_eval = eval;
+                    if (eval > alpha)
+                    {
+                        alpha = eval;
+                    }
+                }
+                pos.unmakeMove(moves[depth][i]);
+                if (eval >= beta)
+                {
+                    return max_eval;
+                }
+            }
+            else
+            {
+                pos.unmakeMove(moves[depth][i]);
+            }
         }
     }
     return max_eval;

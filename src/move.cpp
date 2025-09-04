@@ -22,16 +22,9 @@ std::string Move::getLongAlgebraicNotation() const
     char toSquareFile = ('h' - ((move & 0x3f) >> 3));
     char fromSquareRank = ('1' + ((move & 0x1ff) >> 6));
     char fromSquareFile = ('h' - ((move & 0xfff) >> 9));
-    char arr[8] = {fromSquareFile, fromSquareRank, toSquareFile, toSquareRank,
+    char arr[6] = {fromSquareFile, fromSquareRank, toSquareFile, toSquareRank,
                    '\0'};
 
-    if (getFlags() == Move::capture || (getFlags() >= Move::knightPromotionCapture && getFlags() <= Move::queenPromotionCapture))
-    {
-        arr[2] = 'x';
-        arr[3] = toSquareFile;
-        arr[4] = toSquareRank;
-        arr[5] = '\0';
-    }
     if (getFlags() >= Move::knightPromotion && getFlags() <= Move::queenPromotionCapture)
     {
         char promotionChar;
@@ -39,36 +32,26 @@ std::string Move::getLongAlgebraicNotation() const
         {
         case Move::knightPromotion:
         case Move::knightPromotionCapture:
-            promotionChar = 'N';
+            promotionChar = 'n';
             break;
         case Move::bishopPromotion:
         case Move::bishopPromotionCapture:
-            promotionChar = 'B';
+            promotionChar = 'b';
             break;
         case Move::rookPromotion:
         case Move::rookPromotionCapture:
-            promotionChar = 'R';
+            promotionChar = 'r';
             break;
         case Move::queenPromotion:
         case Move::queenPromotionCapture:
-            promotionChar = 'Q';
+            promotionChar = 'q';
             break;
         default:
             promotionChar = ' '; // Should not reach here
             break;
         }
-        if (getFlags() >= Move::knightPromotionCapture && getFlags() <= Move::queenPromotionCapture)
-        {
-            arr[5] = '=';
-            arr[6] = promotionChar;
-            arr[7] = '\0';
-        }
-        else
-        {
-            arr[4] = '=';
-            arr[5] = promotionChar;
-            arr[6] = '\0';
-        }
+        arr[4] = promotionChar;
+        arr[5] = '\0';
     }
     return std::string(arr);
 }
