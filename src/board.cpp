@@ -21,7 +21,6 @@ void Board::init()
     // pieces[Types::rooks] = 0x8100000000000081;
     // pieces[Types::knights] = 0x4000000000000c40;
     // pieces[Types::pawns] = 0xd720000000e300;
-    capturedPiecesStack = std::stack<Types::PieceEnum>();
 }
 
 void Board::print()
@@ -39,7 +38,6 @@ Board::Board(std::string fen)
     {
         pieces[i] = 0;
     }
-    capturedPiecesStack = std::stack<Types::PieceEnum>();
 
     uint64_t square = 0x8000000000000000; // Start from a8
     for (char c : fen)
@@ -115,10 +113,9 @@ Board::Board(std::string fen)
             square >>= 1; // Move to the next square
         }
     }
-    capturedPiecesStack = std::stack<Types::PieceEnum>();
 }
 
-void Board::makeMove(Move move, Types::PieceEnum color)
+void Board::makeMove(Move move, Types::PieceEnum color, int depth)
 {
     uint64_t fromSquare = move.getFromSquare();
     uint64_t toSquare = move.getToSquare();
@@ -138,7 +135,7 @@ void Board::makeMove(Move move, Types::PieceEnum color)
             {
                 // std::cout << "Capturing piece: " << static_cast<Types::PieceEnum>(i) << "\n";
                 pieces[i] &= ~toSquare;
-                capturedPiecesStack.push(static_cast<Types::PieceEnum>(i));
+                capturedPieces[depth] = (static_cast<Types::PieceEnum>(i));
                 break;
             }
         }

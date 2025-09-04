@@ -1,6 +1,32 @@
 #include "position.h"
 #include "move.h"
 
+uint8_t Position::prevCastlingRights[] = {0};
+uint64_t Position::prevEnPassantSquares[] = {0};
+
+Position::Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights)
+    : board(board),
+      currentPlayer(currentPlayer), castlingRights(castlingRights)
+{
+    enPassantSquare = 0;
+    depth = 0;
+    prevCastlingRights[depth] = castlingRights;
+    prevEnPassantSquares[depth] = enPassantSquare;
+}
+
+Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights) : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights)
+{
+    depth = 0;
+    prevCastlingRights[depth] = castlingRights;
+    prevEnPassantSquares[depth] = enPassantSquare;
+}
+
+Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int depth) : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights), depth(depth)
+{
+    prevCastlingRights[depth] = castlingRights;
+    prevEnPassantSquares[depth] = enPassantSquare;
+}
+
 Position::Position(std::string fen)
     : board(fen)
 {
@@ -32,11 +58,20 @@ Position::Position(std::string fen)
         int rankIndex = rank - '1';
         enPassantSquare = 1ULL << (rankIndex * 8 - fileIndex);
     }
-    prevCastlingRightsStack = std::stack<uint8_t>();
-    prevEnPassantSquaresStack = std::stack<uint64_t>();
+    depth = 0;
+    prevCastlingRights[depth] = castlingRights;
+    prevEnPassantSquares[depth] = enPassantSquare;
 }
 
-Position Position::makeMove(Move move)
+Position::Position()
+    : board(Board()), enPassantSquare(0), currentPlayer(Types::white), castlingRights(0b1111)
+{
+    depth = 0;
+    prevCastlingRights[depth] = castlingRights;
+    prevEnPassantSquares[depth] = enPassantSquare;
+}
+
+Position Position::makeMove(Move move, bool commit)
 {
     Board newBoard = board;
     uint64_t fromSquare = move.getFromSquare();
@@ -44,7 +79,7 @@ Position Position::makeMove(Move move)
     Types::PieceEnum piece = move.getPiece();
     uint32_t flags = move.getFlags();
 
-    newBoard.makeMove(move, currentPlayer);
+    newBoard.makeMove(move, currentPlayer, depth);
     uint64_t newEnPassantSquare = 0;
     uint8_t newCastlingRights = castlingRights;
     if (flags == Move::doublePush)
@@ -87,7 +122,7 @@ Position Position::makeMove(Move move)
                 newCastlingRights &= 0b0111;
         }
     }
-    if (flags == Move::capture)
+    if (flags == Move::capture || (flags >= Move::knightPromotionCapture && flags <= Move::queenPromotionCapture))
     {
         if (toSquare & h1Square)
             newCastlingRights &= 0b1110;
@@ -99,11 +134,11 @@ Position Position::makeMove(Move move)
             newCastlingRights &= 0b0111;
     }
     Types::PieceEnum nextPlayer = (currentPlayer == Types::white) ? Types::black : Types::white;
-    std::stack<uint64_t> newPrevEnPassantSquaresStack = prevEnPassantSquaresStack;
-    newPrevEnPassantSquaresStack.push(enPassantSquare);
-    std::stack<uint8_t> newPrevCastlingRightsStack = prevCastlingRightsStack;
-    newPrevCastlingRightsStack.push(castlingRights);
-    return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, newPrevCastlingRightsStack, newPrevEnPassantSquaresStack);
+    if (commit)
+    {
+        return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, 0);
+    }
+    return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, depth + 1);
 }
 
 Position Position::unmakeMove(Move move)
@@ -150,8 +185,7 @@ Position Position::unmakeMove(Move move)
     if (flags == Move::capture || (flags >= Move::knightPromotionCapture && flags <= Move::queenPromotionCapture))
     {
         // std::cout << "Restoring captured piece: " << newBoard.getCapturedPiece() << "\n";
-        newBoard.addPiece(toSquare, currentPlayer, newBoard.getCapturedPiece());
-        newBoard.popCapturedPieces();
+        newBoard.addPiece(toSquare, currentPlayer, newBoard.getCapturedPiece(depth - 1));
     }
 
     // Handle en passant
@@ -210,10 +244,8 @@ Position Position::unmakeMove(Move move)
     // std::cout << newBoard.getPieceSet(Types::white, Types::kings) << "\n";
     // std::cout << newBoard.getPieceSet(Types::black, Types::kings) << "\n";
 
-    uint8_t prevCastlingRights = prevCastlingRightsStack.top();
-    uint64_t prevEnPassantSquare = prevEnPassantSquaresStack.top();
-    prevEnPassantSquaresStack.pop();
-    prevCastlingRightsStack.pop();
+    uint8_t prevCastlingRightsValue = prevCastlingRights[depth - 1];
+    uint64_t prevEnPassantSquare = prevEnPassantSquares[depth - 1];
 
-    return Position(newBoard, prevEnPassantSquare, opponent, prevCastlingRights, prevCastlingRightsStack, prevEnPassantSquaresStack);
+    return Position(newBoard, prevEnPassantSquare, opponent, prevCastlingRightsValue, depth - 1);
 }

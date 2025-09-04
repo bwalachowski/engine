@@ -35,6 +35,35 @@ int MoveGenerator::generateLegalMoves(Position position, Move *moves)
     return n_moves;
 }
 
+int MoveGenerator::checkMobility(Position position, Types::PieceEnum color)
+{
+    Types::PieceEnum currentPlayer = position.getCurrentPlayer();
+    bool changedPlayer = false;
+    if (currentPlayer != color)
+    {
+        changedPlayer = true;
+        position.changeCurrentPlayer();
+    }
+    Move moves[256];
+    int n_moves = generatePseudoLegalMoves(position, moves);
+    for (int i = 0; i < n_moves; i++)
+    {
+        Position new_position = position.makeMove(moves[i]);
+        uint64_t king_square = new_position.getPieceSet(position.getCurrentPlayer(), Types::kings);
+        if (attacked(king_square, new_position, position.getOtherPlayer()))
+        {
+            moves[i] = moves[n_moves - 1];
+            n_moves--;
+            i--;
+        }
+    }
+    if (changedPlayer)
+    {
+        position.changeCurrentPlayer();
+    }
+    return n_moves;
+}
+
 int MoveGenerator::generatePseudoLegalMoves(Position position, Move *moves)
 {
     int n_moves = 0;

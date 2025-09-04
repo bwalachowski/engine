@@ -33,7 +33,7 @@ uint64_t Tests::perft(int depth, Position pos)
         pos = pos.makeMove(moves[depth][i]);
         uint64_t new_nodes = perft(depth - 1, pos);
         // if (depth >= 1)
-        //     std::cout << moves[i] << ": " << new_nodes << "\n";
+        //     std::cout << moves[depth][i] << ": " << new_nodes << "\n";
         nodes += new_nodes;
         pos = pos.unmakeMove(moves[depth][i]);
     }

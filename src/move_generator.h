@@ -108,6 +108,7 @@ class MoveGenerator
 public:
     MoveGenerator();
     int generateLegalMoves(Position position, Move *moves);
+    int checkMobility(Position position, Types::PieceEnum color);
 };
 
 #endif // #ifndef MOVE_GENERATOR_H

@@ -9,7 +9,7 @@
 class Board
 {
     std::uint64_t pieces[8];
-    std::stack<Types::PieceEnum> capturedPiecesStack;
+    Types::PieceEnum capturedPieces[64];
 
 public:
     void init();
@@ -20,11 +20,9 @@ public:
     uint64_t getPieceSet(Types::PieceEnum color, Types::PieceEnum pieceType) { return pieces[color] & pieces[pieceType]; }
     uint64_t getPieceSet(Types::PieceEnum i) { return pieces[i]; }
     uint64_t getAllPieces() { return pieces[Types::white] | pieces[Types::black]; }
-    Types::PieceEnum getCapturedPiece() { return capturedPiecesStack.top(); }
-    void popCapturedPieces() { capturedPiecesStack.pop(); }
-    size_t capturedPiecesStackSize() { return capturedPiecesStack.size(); }
+    Types::PieceEnum getCapturedPiece(int depth) { return capturedPieces[depth]; }
 
-    void makeMove(Move move, Types::PieceEnum color);
+    void makeMove(Move move, Types::PieceEnum color, int depth);
     void removePiece(uint64_t square, Types::PieceEnum color, Types::PieceEnum pieceType)
     {
         pieces[color] &= ~square;

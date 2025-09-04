@@ -10,8 +10,9 @@ class Position
     Types::PieceEnum currentPlayer;
     uint8_t castlingRights; // last 4 bits, in order from last:  white short castle, white
                             // long castle, black short castle, black long castle
-    std::stack<uint8_t> prevCastlingRightsStack;
-    std::stack<uint64_t> prevEnPassantSquaresStack;
+    static uint8_t prevCastlingRights[64];
+    static uint64_t prevEnPassantSquares[64];
+    int depth;
 
     const static uint64_t a1Square = 0x80;
     const static uint64_t h1Square = 0x1;
@@ -23,32 +24,13 @@ class Position
     const static uint64_t d8Square = 0x1000000000000000;
 
 public:
-    Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights)
-        : board(board),
-          currentPlayer(currentPlayer), castlingRights(castlingRights)
-    {
-        enPassantSquare = 0;
-        prevCastlingRightsStack = std::stack<uint8_t>();
-        prevEnPassantSquaresStack = std::stack<uint64_t>();
-    };
-    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights)
-        : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights)
-    {
-        prevCastlingRightsStack = std::stack<uint8_t>();
-        prevEnPassantSquaresStack = std::stack<uint64_t>();
-    };
+    Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights);
+    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights);
 
-    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights,
-             std::stack<uint8_t> prevCastlingRightsStack, std::stack<uint64_t> prevEnPassantSquaresStack)
-        : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights),
-          prevCastlingRightsStack(prevCastlingRightsStack), prevEnPassantSquaresStack(prevEnPassantSquaresStack) {};
+    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int depth);
 
     Position(std::string fen);
-    Position() : board(Board()), enPassantSquare(0), currentPlayer(Types::white), castlingRights(0b1111)
-    {
-        prevCastlingRightsStack = std::stack<uint8_t>();
-        prevEnPassantSquaresStack = std::stack<uint64_t>();
-    };
+    Position();
 
     uint64_t getPieceSet(Types::PieceEnum color, Types::PieceEnum pieceType)
     {
@@ -66,7 +48,11 @@ public:
 
     uint8_t getCastlingRights() { return castlingRights; }
 
-    Position makeMove(Move move);
+    Position makeMove(Move move, bool commit = false);
     Position unmakeMove(Move move);
+    void changeCurrentPlayer()
+    {
+        currentPlayer = (currentPlayer == Types::white) ? Types::black : Types::white;
+    }
 };
 #endif // #ifndef POSITION_H
