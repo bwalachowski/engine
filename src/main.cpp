@@ -10,18 +10,21 @@
 
 int main()
 {
-    Position position = Position("r1b1k2r/1pq2ppp/pbn1p3/3pP2n/1P3B2/N1PB1N2/P4PPP/R2Q1RK1 w kq - 2 12");
+    Position position = Position("r4rk1/1pqb2pp/p1n1p3/2Np4/1P3n2/N1P5/P2Q1PPP/1B2RRK1 b - - 6 19");
     std::cout << position.getAllPieces() << std::endl;
     Engine engine;
+    clock_t start = clock();
     Move move = engine.give_move(position);
+    clock_t end = clock();
+    double time_spent = double(end - start) / CLOCKS_PER_SEC;
+    std::cout << "Time taken: " << time_spent << " seconds\n";
     int j = 0;
-    while (!move.isNull() > 0 && j++ < 10)
-    {
-        std::cout << "Move: " << move << "\n";
-        position = position.makeMove(move, true);
-        std::cout << position.getAllPieces() << "\n";
-        move = engine.give_move(position);
-    }
+    // while (!move.isNull() > 0 && j++ < 10)
+    // {
+    //     position = position.makeMove(move, true);
+    //     std::cout << position.getAllPieces() << "\n";
+    //     move = engine.give_move(position);
+    // }
 }
 
 // perft test

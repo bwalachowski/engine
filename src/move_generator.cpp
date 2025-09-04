@@ -64,6 +64,18 @@ int MoveGenerator::checkMobility(Position position, Types::PieceEnum color)
     return n_moves;
 }
 
+int MoveGenerator::checkPseudoLegalMobility(Position position, Types::PieceEnum color)
+{
+    int n_moves = 0;
+    n_moves += generateBishopPseudoLegalMobility(position, color);
+    n_moves += generateRookPseudoLegalMobility(position, color);
+    n_moves += generateQueenPseudoLegalMobility(position, color);
+    n_moves += generateKnightPseudoLegalMobility(position, color);
+    n_moves += generateKingPseudoLegalMobility(position, color);
+    n_moves += generatePawnPseudoLegalMobility(position, color);
+    return n_moves;
+}
+
 int MoveGenerator::generatePseudoLegalMoves(Position position, Move *moves)
 {
     int n_moves = 0;
@@ -73,6 +85,127 @@ int MoveGenerator::generatePseudoLegalMoves(Position position, Move *moves)
     generateKnightPseudoLegalMoves(moves, position, &n_moves);
     generateKingPseudoLegalMoves(moves, position, &n_moves);
     generatePawnPseudoLegalMoves(moves, position, &n_moves);
+    return n_moves;
+}
+
+int MoveGenerator::generateBishopPseudoLegalMobility(Position position, Types::PieceEnum color)
+{
+    uint64_t playerBishops = position.getPieceSet(color, Types::bishops);
+    int n_moves = 0;
+    while (playerBishops)
+    {
+        uint32_t bishop = std::countr_zero(playerBishops);
+        uint64_t bishopMoves = ~position.getPieceSet(color) & singleBishopMoves(bishop, position);
+        n_moves += std::popcount(bishopMoves);
+        playerBishops &= playerBishops - 1;
+    }
+    return n_moves;
+}
+
+int MoveGenerator::generateRookPseudoLegalMobility(Position position, Types::PieceEnum color)
+{
+    uint64_t playerRooks = position.getPieceSet(color, Types::rooks);
+    int n_moves = 0;
+    while (playerRooks)
+    {
+        uint32_t rook = std::countr_zero(playerRooks);
+        uint64_t rookMoves = ~position.getPieceSet(color) & singleRookMoves(rook, position);
+        n_moves += std::popcount(rookMoves);
+        playerRooks &= playerRooks - 1;
+    }
+    return n_moves;
+}
+
+int MoveGenerator::generateQueenPseudoLegalMobility(Position position, Types::PieceEnum color)
+{
+    uint64_t playerQueens = position.getPieceSet(color, Types::queens);
+    int n_moves = 0;
+    while (playerQueens)
+    {
+        uint32_t queen = std::countr_zero(playerQueens);
+        uint64_t queenMoves = ~position.getPieceSet(color) & (singleBishopMoves(queen, position) | singleRookMoves(queen, position));
+        n_moves += std::popcount(queenMoves);
+        playerQueens &= playerQueens - 1;
+    }
+    return n_moves;
+}
+
+int MoveGenerator::generateKnightPseudoLegalMobility(Position position, Types::PieceEnum color)
+{
+    uint64_t playerKnights = position.getPieceSet(color, Types::knights);
+    int n_moves = 0;
+    while (playerKnights)
+    {
+        uint32_t knight = std::countr_zero(playerKnights);
+        uint64_t knightMoves = ~position.getPieceSet(color) & knightAttacksEmptyBoard[knight];
+        n_moves += std::popcount(knightMoves);
+        playerKnights &= playerKnights - 1;
+    }
+    return n_moves;
+}
+
+int MoveGenerator::generateKingPseudoLegalMobility(Position position, Types::PieceEnum color)
+{
+    uint64_t playerKing = position.getPieceSet(color, Types::kings);
+    int n_moves = 0;
+    uint32_t king = std::countr_zero(playerKing);
+    uint64_t kingMoves = ~position.getPieceSet(color) & kingAttacksEmptyBoard[king];
+    n_moves += std::popcount(kingMoves);
+    if (shortCastleLegal(position, color))
+    {
+        n_moves++;
+    }
+    if (longCastleLegal(position, color))
+    {
+        n_moves++;
+    }
+
+    return n_moves;
+}
+
+int MoveGenerator::generatePawnPseudoLegalMobility(Position position, Types::PieceEnum color)
+{
+    uint64_t playerPawns = position.getPieceSet(color, Types::pawns);
+    Types::PieceEnum opponent = (color == Types::white) ? Types::black : Types::white;
+    int n_moves = 0;
+    if (color == Types::white)
+    {
+        uint64_t singlePushTargets = whiteSinglePushTargets(playerPawns, position);
+        n_moves += std::popcount(singlePushTargets);
+        uint64_t doublePushTargets = whiteDoublePushTargets(playerPawns, position);
+        n_moves += std::popcount(doublePushTargets);
+        uint64_t eastAttackTargets = whitePawnEastAttackTargets(playerPawns) & position.getPieceSet(opponent);
+        n_moves += std::popcount(eastAttackTargets);
+        uint64_t westAttackTargets = whitePawnWestAttackTargets(playerPawns) & position.getPieceSet(opponent);
+        n_moves += std::popcount(westAttackTargets);
+        if (position.getEnPassantSquare() & whitePawnEastAttackTargets(playerPawns))
+        {
+            n_moves++;
+        }
+        if (position.getEnPassantSquare() & whitePawnWestAttackTargets(playerPawns))
+        {
+            n_moves++;
+        }
+    }
+    else
+    {
+        uint64_t singlePushTargets = blackSinglePushTargets(playerPawns, position);
+        n_moves += std::popcount(singlePushTargets);
+        uint64_t doublePushTargets = blackDoublePushTargets(playerPawns, position);
+        n_moves += std::popcount(doublePushTargets);
+        uint64_t eastAttackTargets = blackPawnEastAttackTargets(playerPawns) & position.getPieceSet(opponent);
+        n_moves += std::popcount(eastAttackTargets);
+        uint64_t westAttackTargets = blackPawnWestAttackTargets(playerPawns) & position.getPieceSet(opponent);
+        n_moves += std::popcount(westAttackTargets);
+        if (position.getEnPassantSquare() & blackPawnEastAttackTargets(playerPawns))
+        {
+            n_moves++;
+        }
+        if (position.getEnPassantSquare() & blackPawnWestAttackTargets(playerPawns))
+        {
+            n_moves++;
+        }
+    }
     return n_moves;
 }
 
@@ -846,6 +979,7 @@ bool MoveGenerator::attacked(uint64_t square,
 bool MoveGenerator::shortCastleLegal(Position position, Types::PieceEnum color)
 {
     uint8_t castlingRights = position.getCastlingRights();
+    Types::PieceEnum opponent = (color == Types::white) ? Types::black : Types::white;
     if (color == Types::white)
     {
         if (!(castlingRights & 0b0001))
@@ -853,14 +987,14 @@ bool MoveGenerator::shortCastleLegal(Position position, Types::PieceEnum color)
             return false;
         }
         uint64_t square_checked = position.getPieceSet(color, Types::kings);
-        if (attacked(square_checked, position, position.getOtherPlayer()))
+        if (attacked(square_checked, position, opponent))
         {
             return false;
         }
         square_checked >>= 1;
         while (square_checked != 0b1)
         {
-            if (attacked(square_checked, position, position.getOtherPlayer()))
+            if (attacked(square_checked, position, opponent))
             {
                 return false;
             }
@@ -876,12 +1010,15 @@ bool MoveGenerator::shortCastleLegal(Position position, Types::PieceEnum color)
         if (!(castlingRights & 0b0100))
             return false;
         uint64_t square_checked = position.getPieceSet(color, Types::kings);
-        if (attacked(square_checked, position, position.getOtherPlayer()))
+        // std::cout << square_checked << std::endl;
+        // std::cout << position.getPieceSet(Types::kings) << std::endl;
+        // std::cout << position.getPieceSet(color) << std::endl;
+        if (attacked(square_checked, position, opponent))
             return false;
         square_checked >>= 1;
         while (square_checked != 0x100000000000000)
         {
-            if (attacked(square_checked, position, position.getOtherPlayer()))
+            if (attacked(square_checked, position, opponent))
                 return false;
             if (position.getAllPieces() & square_checked)
                 return false;
@@ -894,17 +1031,18 @@ bool MoveGenerator::shortCastleLegal(Position position, Types::PieceEnum color)
 bool MoveGenerator::longCastleLegal(Position position, Types::PieceEnum color)
 {
     uint8_t castlingRights = position.getCastlingRights();
+    Types::PieceEnum opponent = (color == Types::white) ? Types::black : Types::white;
     if (color == Types::white)
     {
         if (!(castlingRights & 0b0010))
             return false;
         uint64_t square_checked = position.getPieceSet(color, Types::kings);
-        if (attacked(square_checked, position, position.getOtherPlayer()))
+        if (attacked(square_checked, position, opponent))
             return false;
         square_checked <<= 1;
         while (square_checked != 0b1000000)
         {
-            if (attacked(square_checked, position, position.getOtherPlayer()))
+            if (attacked(square_checked, position, opponent))
                 return false;
             if (position.getAllPieces() & square_checked)
                 return false;
@@ -918,12 +1056,12 @@ bool MoveGenerator::longCastleLegal(Position position, Types::PieceEnum color)
         if (!(castlingRights & 0b1000))
             return false;
         uint64_t square_checked = position.getPieceSet(color, Types::kings);
-        if (attacked(square_checked, position, position.getOtherPlayer()))
+        if (attacked(square_checked, position, opponent))
             return false;
         square_checked <<= 1;
         while (square_checked != 0x4000000000000000)
         {
-            if (attacked(square_checked, position, position.getOtherPlayer()))
+            if (attacked(square_checked, position, opponent))
                 return false;
             if (position.getAllPieces() & square_checked)
                 return false;

@@ -49,7 +49,8 @@ public:
     uint8_t getCastlingRights() { return castlingRights; }
 
     Position makeMove(Move move, bool commit = false);
-    Position unmakeMove(Move move);
+    bool makeMoveCheckIfLegal(Move move);
+    void unmakeMove(Move move);
     void changeCurrentPlayer()
     {
         currentPlayer = (currentPlayer == Types::white) ? Types::black : Types::white;

@@ -1,5 +1,6 @@
 #include "position.h"
 #include "move.h"
+#include "move_generator.h"
 
 uint8_t Position::prevCastlingRights[] = {0};
 uint64_t Position::prevEnPassantSquares[] = {0};
@@ -141,7 +142,84 @@ Position Position::makeMove(Move move, bool commit)
     return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, depth + 1);
 }
 
-Position Position::unmakeMove(Move move)
+bool Position::makeMoveCheckIfLegal(Move move)
+{
+    Board newBoard = board;
+    uint64_t fromSquare = move.getFromSquare();
+    uint64_t toSquare = move.getToSquare();
+    Types::PieceEnum piece = move.getPiece();
+    uint32_t flags = move.getFlags();
+
+    newBoard.makeMove(move, currentPlayer, depth);
+    uint64_t newEnPassantSquare = 0;
+    uint8_t newCastlingRights = castlingRights;
+    if (flags == Move::doublePush)
+    {
+        if (currentPlayer == Types::white)
+        {
+            newEnPassantSquare = fromSquare << 8;
+        }
+        else
+        {
+            newEnPassantSquare = fromSquare >> 8;
+        }
+    }
+
+    if (piece == Types::kings)
+    {
+        if (currentPlayer == Types::white)
+        {
+            newCastlingRights &= 0b1100;
+        }
+        else
+        {
+            newCastlingRights &= 0b0011;
+        }
+    }
+    else if (piece == Types::rooks)
+    {
+        if (currentPlayer == Types::white)
+        {
+            if (fromSquare & h1Square)
+                newCastlingRights &= 0b1110;
+            else if (fromSquare & a1Square)
+                newCastlingRights &= 0b1101;
+        }
+        else
+        {
+            if (fromSquare & h8Square)
+                newCastlingRights &= 0b1011;
+            else if (fromSquare & a8Square)
+                newCastlingRights &= 0b0111;
+        }
+    }
+    if (flags == Move::capture || (flags >= Move::knightPromotionCapture && flags <= Move::queenPromotionCapture))
+    {
+        if (toSquare & h1Square)
+            newCastlingRights &= 0b1110;
+        else if (toSquare & a1Square)
+            newCastlingRights &= 0b1101;
+        else if (toSquare & h8Square)
+            newCastlingRights &= 0b1011;
+        else if (toSquare & a8Square)
+            newCastlingRights &= 0b0111;
+    }
+    MoveGenerator moveGen;
+    board = newBoard;
+    enPassantSquare = newEnPassantSquare;
+    castlingRights = newCastlingRights;
+    depth += 1;
+    Types::PieceEnum otherPlayer = currentPlayer;
+    currentPlayer = (currentPlayer == Types::white) ? Types::black : Types::white;
+    if (moveGen.attacked(newBoard.getPieceSet(otherPlayer, Types::kings), *this, currentPlayer))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void Position::unmakeMove(Move move)
 {
     Board newBoard = board;
     uint64_t fromSquare = move.getFromSquare();
@@ -247,5 +325,9 @@ Position Position::unmakeMove(Move move)
     uint8_t prevCastlingRightsValue = prevCastlingRights[depth - 1];
     uint64_t prevEnPassantSquare = prevEnPassantSquares[depth - 1];
 
-    return Position(newBoard, prevEnPassantSquare, opponent, prevCastlingRightsValue, depth - 1);
+    board = newBoard;
+    castlingRights = prevCastlingRightsValue;
+    enPassantSquare = prevEnPassantSquare;
+    depth -= 1;
+    currentPlayer = opponent;
 }

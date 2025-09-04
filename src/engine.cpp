@@ -8,24 +8,26 @@ Move Engine::give_move(Position pos)
     Move best_move;
     int max_eval = -100000;
 
-    n_moves = generator.generateLegalMoves(pos, moves[depth]);
+    n_moves = generator.generatePseudoLegalMoves(pos, moves[depth]);
     if (n_moves == 0)
     {
         return Move(); // null move
     }
     for (int i = 0; i < n_moves; i++)
     {
-        pos = pos.makeMove(moves[depth][i]);
-        int eval = -negamax(-100000, 100000, pos, depth - 1);
-        if (eval > max_eval)
+        if (pos.makeMoveCheckIfLegal(moves[depth][i]))
         {
-            max_eval = eval;
-            best_move = moves[depth][i];
+            int eval = -negamax(-100000, 100000, pos, depth - 1);
+            if (eval > max_eval)
+            {
+                max_eval = eval;
+                best_move = moves[depth][i];
+            }
+            std::cout << "move: " << moves[depth][i] << " eval:" << eval << std::endl;
         }
-        pos = pos.unmakeMove(moves[depth][i]);
-        std::cout << "move: " << moves[depth][i] << " eval:" << eval << std::endl;
+        pos.unmakeMove(moves[depth][i]);
     }
-    std::cout << "Best eval: " << max_eval << std::endl;
+    std::cout << "move: " << best_move << "Best eval: " << max_eval << std::endl;
     return best_move;
 }
 
@@ -44,20 +46,26 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
     int max_eval = -100000;
     for (int i = 0; i < n_moves; i++)
     {
-        pos = pos.makeMove(moves[depth][i]);
-        int eval = -negamax(-beta, -alpha, pos, depth - 1);
-        if (eval > max_eval)
+        if (pos.makeMoveCheckIfLegal(moves[depth][i]))
         {
-            max_eval = eval;
-            if (eval > alpha)
+            int eval = -negamax(-beta, -alpha, pos, depth - 1);
+            if (eval > max_eval)
             {
-                alpha = eval;
+                max_eval = eval;
+                if (eval > alpha)
+                {
+                    alpha = eval;
+                }
+            }
+            pos.unmakeMove(moves[depth][i]);
+            if (eval >= beta)
+            {
+                return max_eval;
             }
         }
-        pos = pos.unmakeMove(moves[depth][i]);
-        if (eval >= beta)
+        else
         {
-            return max_eval;
+            pos.unmakeMove(moves[depth][i]);
         }
     }
     return max_eval;
@@ -85,7 +93,7 @@ int Engine::evaluate(Position pos)
     score += 500 * std::popcount(white_rooks) - 500 * std::popcount(black_rooks);
     score += 900 * std::popcount(white_queens) - 900 * std::popcount(black_queens);
     score += 10000 * std::popcount(white_kings) - 10000 * std::popcount(black_kings);
-    score += 10 * generator.checkMobility(pos, Types::white) - 10 * generator.checkMobility(pos, Types::black);
+    score += 10 * generator.checkPseudoLegalMobility(pos, Types::white) - 10 * generator.checkPseudoLegalMobility(pos, Types::black);
 
     return (pos.getCurrentPlayer() == Types::white) ? score : -score;
 }

@@ -49,6 +49,13 @@ class MoveGenerator
     void generatePawnPseudoLegalMoves(Move *moves,
                                       Position position, int *n_moves);
 
+    int generateBishopPseudoLegalMobility(Position position, Types::PieceEnum color);
+    int generateRookPseudoLegalMobility(Position position, Types::PieceEnum color);
+    int generateQueenPseudoLegalMobility(Position position, Types::PieceEnum color);
+    int generateKnightPseudoLegalMobility(Position position, Types::PieceEnum color);
+    int generateKingPseudoLegalMobility(Position position, Types::PieceEnum color);
+    int generatePawnPseudoLegalMobility(Position position, Types::PieceEnum color);
+
     uint64_t southFill(uint64_t square);
     uint64_t northFill(uint64_t square);
     uint64_t eastFill(uint64_t square);
@@ -100,15 +107,16 @@ class MoveGenerator
 
     uint32_t squareForMove(int square);
 
-    bool attacked(uint64_t square, Position position, Types::PieceEnum byColor);
     bool shortCastleLegal(Position position, Types::PieceEnum color);
     bool longCastleLegal(Position position, Types::PieceEnum color);
-    int generatePseudoLegalMoves(Position position, Move *moves);
 
 public:
     MoveGenerator();
+    bool attacked(uint64_t square, Position position, Types::PieceEnum byColor);
     int generateLegalMoves(Position position, Move *moves);
+    int generatePseudoLegalMoves(Position position, Move *moves);
     int checkMobility(Position position, Types::PieceEnum color);
+    int checkPseudoLegalMobility(Position position, Types::PieceEnum color);
 };
 
 #endif // #ifndef MOVE_GENERATOR_H
