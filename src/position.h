@@ -5,14 +5,24 @@
 
 class Position
 {
+    constexpr static int hashTableSize = 781;
     Board board;
     uint64_t enPassantSquare;
     Types::PieceEnum currentPlayer;
     uint8_t castlingRights; // last 4 bits, in order from last:  white short castle, white
                             // long castle, black short castle, black long castle
     static uint8_t prevCastlingRights[64];
+    static uint64_t hashPieceNumbers[12][64];
+    static uint64_t hashBlackToMove;
+    static uint64_t hashCastlingRights[16];
+    static uint64_t hashEnPassantSquare[8];
     static uint64_t prevEnPassantSquares[64];
+    static uint64_t repetitionTable[120];
+    static uint64_t prevHashes[64];
+    int repetitionIndex = 0;
+    static int prevRepetitionIndices[64];
     int depth;
+    static bool hashesInitialized;
 
     const static uint64_t a1Square = 0x80;
     const static uint64_t h1Square = 0x1;
@@ -27,10 +37,13 @@ public:
     Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights);
     Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights);
 
-    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int depth);
+    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash);
 
     Position(std::string fen);
+    Position(std::string pieces, std::string color, std::string castlingRightsFen, std::string enPassantSquareFen);
     Position();
+
+    void initializeHashNumbers();
 
     uint64_t getPieceSet(Types::PieceEnum color, Types::PieceEnum pieceType)
     {
@@ -38,6 +51,11 @@ public:
     }
     uint64_t getPieceSet(Types::PieceEnum i) { return board.getPieceSet(i); }
     uint64_t getAllPieces() { return board.getAllPieces(); }
+    uint64_t getZobristHash();
+
+    bool isDraw();
+
+    Move getMoveFromLongAlgebraicNotation(std::string longAlgebraicNotation);
 
     uint64_t getEnPassantSquare() { return enPassantSquare; }
     Types::PieceEnum getCurrentPlayer() { return currentPlayer; }

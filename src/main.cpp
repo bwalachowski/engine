@@ -7,24 +7,18 @@
 #include <bit>
 #include <ctime>
 #include "tests.h"
+#include "uci.h"
 
 int main()
 {
-    Position position = Position("r3k2r/p1pp1pR1/1pn1pBp1/4Pn2/1b6/2N2P2/PP3K1P/6R1 b kq - 3 20");
-    std::cout << position.getAllPieces() << std::endl;
-    Engine engine;
-    clock_t start = clock();
-    Move move = engine.give_move(position);
-    clock_t end = clock();
-    double time_spent = double(end - start) / CLOCKS_PER_SEC;
-    std::cout << "Time taken: " << time_spent << " seconds\n";
-    int j = 0;
-    // while (!move.isNull() > 0 && j++ < 10)
-    // {
-    //     position = position.makeMove(move, true);
-    //     std::cout << position.getAllPieces() << "\n";
-    //     move = engine.give_move(position);
-    // }
+    UCI uciEngine;
+    uciEngine.runner();
+    //  while (!move.isNull() > 0 && j++ < 10)
+    //  {
+    //      position = position.makeMove(move, true);
+    //      std::cout << position.getAllPieces() << "\n";
+    //      move = engine.give_move(position);
+    //  }
 }
 
 // perft test

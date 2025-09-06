@@ -38,6 +38,7 @@ public:
     Move() : move(0), piece(Types::pawns) {}; // null move
 
     std::string getLongAlgebraicNotation() const;
+
     uint64_t getFromSquare() const;
     uint64_t getToSquare() const;
     uint32_t getFlags() const { return (move >> 12) & 0xf; }

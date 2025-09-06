@@ -1,9 +1,19 @@
 #include "position.h"
 #include "move.h"
 #include "move_generator.h"
+#include <random>
+#include <cassert>
 
-uint8_t Position::prevCastlingRights[] = {0};
-uint64_t Position::prevEnPassantSquares[] = {0};
+uint8_t Position::prevCastlingRights[64] = {0};
+uint64_t Position::hashPieceNumbers[12][64] = {{0}};
+uint64_t Position::hashBlackToMove = 0;
+uint64_t Position::hashCastlingRights[16] = {0};
+uint64_t Position::hashEnPassantSquare[8] = {0};
+uint64_t Position::prevEnPassantSquares[64] = {0};
+uint64_t Position::prevHashes[64] = {0};
+uint64_t Position::repetitionTable[120] = {0};
+int Position::prevRepetitionIndices[64] = {0};
+bool Position::hashesInitialized = false;
 
 Position::Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights)
     : board(board),
@@ -11,8 +21,13 @@ Position::Position(Board board, Types::PieceEnum currentPlayer, uint8_t castling
 {
     enPassantSquare = 0;
     depth = 0;
+    repetitionIndex = 0;
+    initializeHashNumbers();
+    repetitionTable[repetitionIndex] = getZobristHash();
+
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
+    prevRepetitionIndices[depth] = repetitionIndex;
 }
 
 Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights) : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights)
@@ -20,12 +35,25 @@ Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum curre
     depth = 0;
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
+    repetitionIndex = 0;
+    prevRepetitionIndices[depth] = repetitionIndex;
+    initializeHashNumbers();
+    repetitionTable[repetitionIndex] = getZobristHash();
 }
 
-Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int depth) : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights), depth(depth)
+Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash) : board(board),
+                                                                                                                                                                   enPassantSquare(enPassantSquare),
+                                                                                                                                                                   currentPlayer(currentPlayer),
+                                                                                                                                                                   castlingRights(castlingRights),
+                                                                                                                                                                   repetitionIndex(repetitionIndex),
+                                                                                                                                                                   depth(depth)
+
 {
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
+    initializeHashNumbers();
+    repetitionTable[repetitionIndex] = hash;
+    prevRepetitionIndices[depth] = repetitionIndex;
 }
 
 Position::Position(std::string fen)
@@ -62,6 +90,44 @@ Position::Position(std::string fen)
     depth = 0;
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
+    repetitionIndex = 0;
+    prevRepetitionIndices[depth] = repetitionIndex;
+    initializeHashNumbers();
+    repetitionTable[repetitionIndex] = getZobristHash();
+}
+
+Position::Position(std::string pieces, std::string color, std::string castlingRightsFen, std::string enPassantSquareFen) : board(pieces)
+{
+    currentPlayer = (color == "w") ? Types::white : Types::black;
+    castlingRights = 0;
+    if (castlingRightsFen.find('K') != std::string::npos)
+        castlingRights |= 0b0001;
+    if (castlingRightsFen.find('Q') != std::string::npos)
+        castlingRights |= 0b0010;
+    if (castlingRightsFen.find('k') != std::string::npos)
+        castlingRights |= 0b0100;
+    if (castlingRightsFen.find('q') != std::string::npos)
+        castlingRights |= 0b1000;
+
+    if (enPassantSquareFen == "-")
+    {
+        enPassantSquare = 0;
+    }
+    else
+    {
+        char file = enPassantSquareFen[0];
+        char rank = enPassantSquareFen[1];
+        int fileIndex = 'h' - file;
+        int rankIndex = rank - '1';
+        enPassantSquare = 1ULL << (rankIndex * 8 - fileIndex);
+    }
+    depth = 0;
+    prevCastlingRights[depth] = castlingRights;
+    prevEnPassantSquares[depth] = enPassantSquare;
+    repetitionIndex = 0;
+    prevRepetitionIndices[depth] = repetitionIndex;
+    initializeHashNumbers();
+    repetitionTable[repetitionIndex] = getZobristHash();
 }
 
 Position::Position()
@@ -70,6 +136,167 @@ Position::Position()
     depth = 0;
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
+    repetitionIndex = 0;
+    prevRepetitionIndices[depth] = repetitionIndex;
+    initializeHashNumbers();
+    repetitionTable[repetitionIndex] = getZobristHash();
+}
+
+void Position::initializeHashNumbers()
+{
+    if (!hashesInitialized)
+    {
+        std::random_device rd;
+        std::mt19937_64 e2(rd());
+        std::uniform_int_distribution<uint64_t> dist;
+        for (int i = 0; i < 12; ++i)
+        {
+            for (int j = 0; j < 64; ++j)
+            {
+                hashPieceNumbers[i][j] = dist(e2);
+            }
+        }
+        for (int i = 0; i < 16; ++i)
+        {
+            hashCastlingRights[i] = dist(e2);
+        }
+        for (int i = 0; i < 8; ++i)
+        {
+            hashEnPassantSquare[i] = dist(e2);
+        }
+        hashBlackToMove = dist(e2);
+        hashesInitialized = true;
+    }
+}
+
+uint64_t Position::getZobristHash()
+{
+    uint64_t hash = 0;
+    for (int i = Types::white; i <= Types::black; ++i)
+    {
+        for (int j = Types::pawns; j <= Types::queens; ++j)
+        {
+            uint64_t pieceSet = getPieceSet(static_cast<Types::PieceEnum>(i), static_cast<Types::PieceEnum>(j));
+            while (pieceSet)
+            {
+                uint32_t piece = std::countr_zero(pieceSet);
+                hash ^= hashPieceNumbers[i * 6 + (j - 2)][piece];
+                pieceSet &= pieceSet - 1;
+            }
+        }
+    }
+    if (currentPlayer == Types::black)
+    {
+        hash ^= hashBlackToMove;
+    }
+    hash ^= hashCastlingRights[castlingRights];
+    int enPassantRank = std::countr_zero(enPassantSquare) % 8;
+    hash ^= hashEnPassantSquare[enPassantRank];
+    // std::cerr << hash << " 0" << std::endl;
+    return hash;
+}
+
+bool Position::isDraw()
+{
+    int repetitionCount = 1;
+    for (int i = repetitionIndex % 2; i < repetitionIndex; i += 2)
+    {
+        // std::cerr << repetitionTable[i] << " " << i << std::endl;
+        if (repetitionTable[i] == repetitionTable[repetitionIndex])
+        {
+            repetitionCount++;
+            if (repetitionCount == 3)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+Move Position::getMoveFromLongAlgebraicNotation(std::string longAlgebraicNotation)
+{
+    uint32_t fromFile = 'h' - (longAlgebraicNotation[0]);
+    uint32_t fromRank = longAlgebraicNotation[1] - '1';
+    uint32_t toFile = 'h' - (longAlgebraicNotation[2]);
+    uint32_t toRank = longAlgebraicNotation[3] - '1';
+    uint64_t fromSquare = 1ULL << (fromRank * 8 + fromFile);
+    uint64_t toSquare = 1ULL << (toRank * 8 + toFile);
+    uint32_t flags = Move::quiet;
+    Types::PieceEnum piece = Types::pawns;
+
+    for (int i = Types::pawns; i <= Types::queens; ++i)
+    {
+        if (fromSquare & getPieceSet(static_cast<Types::PieceEnum>(i)))
+        {
+            piece = static_cast<Types::PieceEnum>(i);
+        }
+    }
+    if (toSquare & getAllPieces())
+    {
+        if (piece == Types::pawns && ((currentPlayer == Types::white && longAlgebraicNotation[3] == '8') ||
+                                      (currentPlayer == Types::black && longAlgebraicNotation[3] == '1')))
+        {
+            if (longAlgebraicNotation[4] == 'q')
+            {
+                flags = Move::queenPromotionCapture;
+            }
+            else if (longAlgebraicNotation[4] == 'r')
+            {
+                flags = Move::rookPromotionCapture;
+            }
+            else if (longAlgebraicNotation[4] == 'b')
+            {
+                flags = Move::bishopPromotionCapture;
+            }
+            else if (longAlgebraicNotation[4] == 'n')
+            {
+                flags = Move::knightPromotionCapture;
+            }
+        }
+        else
+        {
+            flags = Move::capture;
+        }
+    }
+    else if (piece == Types::pawns && ((currentPlayer == Types::white && longAlgebraicNotation[3] == '8') ||
+                                       (currentPlayer == Types::black && longAlgebraicNotation[3] == '1')))
+    {
+        if (longAlgebraicNotation[4] == 'q')
+        {
+            flags = Move::queenPromotion;
+        }
+        else if (longAlgebraicNotation[4] == 'r')
+        {
+            flags = Move::rookPromotion;
+        }
+        else if (longAlgebraicNotation[4] == 'b')
+        {
+            flags = Move::bishopPromotion;
+        }
+        else if (longAlgebraicNotation[4] == 'n')
+        {
+            flags = Move::knightPromotion;
+        }
+    }
+    else if (piece == Types::pawns && ((longAlgebraicNotation[3] == '4' && longAlgebraicNotation[1] == '2') || (longAlgebraicNotation[3] == '5' && longAlgebraicNotation[1] == '7')))
+    {
+        flags = Move::doublePush;
+    }
+    else if (piece == Types::kings && (longAlgebraicNotation[2] == 'g' && longAlgebraicNotation[0] == 'e'))
+    {
+        flags = Move::shortCastle;
+    }
+    else if (piece == Types::kings && (longAlgebraicNotation[2] == 'c' && longAlgebraicNotation[0] == 'e'))
+    {
+        flags = Move::longCastle;
+    }
+    else if (piece == Types::pawns && (toSquare & enPassantSquare))
+    {
+        flags = Move::enPassant;
+    }
+    MoveGenerator generator;
+    return Move(generator.squareForMove(std::countr_zero(fromSquare)), generator.squareForMove(std::countr_zero(toSquare)), flags, piece);
 }
 
 Position Position::makeMove(Move move, bool commit)
@@ -79,6 +306,53 @@ Position Position::makeMove(Move move, bool commit)
     uint64_t toSquare = move.getToSquare();
     Types::PieceEnum piece = move.getPiece();
     uint32_t flags = move.getFlags();
+    uint64_t hash = repetitionTable[repetitionIndex];
+    int pieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(piece) - 2);
+    // std::cerr << "hash number for piece: " << piece << " color: " << currentPlayer << " square: " << fromSquare << " : " << hashPieceNumbers[pieceIndex][std::countr_zero(fromSquare)] << std::endl;
+    hash ^= hashPieceNumbers[pieceIndex][std::countr_zero(fromSquare)];
+    // std::cerr << "new hash: " << hash << std::endl;
+
+    if (flags >= Move::knightPromotion && flags <= Move::queenPromotionCapture)
+    {
+        int promotionPieceIndex;
+        switch (flags)
+        {
+        case Move::knightPromotion:
+        case Move::knightPromotionCapture:
+            // std::cerr << "hash number for piece: " << Types::knights << " color: " << currentPlayer << " square: " << toSquare << " :" << hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)] << std::endl;
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::knights) - 2);
+            break;
+        case Move::bishopPromotion:
+        case Move::bishopPromotionCapture:
+            // std::cerr << "hash number for piece: " << Types::bishops << " color: " << currentPlayer << " square: " << toSquare << " :" << hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)] << std::endl;
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::bishops) - 2);
+            break;
+        case Move::rookPromotion:
+        case Move::rookPromotionCapture:
+            // std::cerr << "hash number for piece: " << Types::rooks << " color: " << currentPlayer << " square: " << toSquare << " :" << hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)] << std::endl;
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::rooks) - 2);
+            break;
+        case Move::queenPromotion:
+        case Move::queenPromotionCapture:
+            // std::cerr << "hash number for piece: " << Types::queens << " color: " << currentPlayer << " square: " << toSquare << " :" << hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)] << std::endl;
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::queens) - 2);
+            break;
+        default:
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(piece) - 2); // Should not reach here
+            break;
+        }
+        hash ^= hashPieceNumbers[promotionPieceIndex][std::countr_zero(toSquare)];
+        // std::cerr << "new hash: " << hash << std::endl;
+    }
+    else
+    {
+        // std::cerr << "hash number for piece: " << piece << " color: " << currentPlayer << " square: " << toSquare << " :" << hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)] << std::endl;
+        hash ^= hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)];
+        // std::cerr << "new hash: " << hash << std::endl;
+    }
+    // std::cerr << "hash number for blackToMove: " << hashBlackToMove << std::endl;
+    hash ^= hashBlackToMove;
+    // std::cerr << "new hash: " << hash << std::endl;
 
     newBoard.makeMove(move, currentPlayer, depth);
     uint64_t newEnPassantSquare = 0;
@@ -125,6 +399,12 @@ Position Position::makeMove(Move move, bool commit)
     }
     if (flags == Move::capture || (flags >= Move::knightPromotionCapture && flags <= Move::queenPromotionCapture))
     {
+        int capturedPieceIndex = static_cast<int>(getOtherPlayer()) * 6 + (static_cast<int>(newBoard.getCapturedPiece(depth)) - 2);
+        // std::cerr << "hash number for piece: " << newBoard.getCapturedPiece(depth) << " color: " << getOtherPlayer() << " square: " << toSquare << " :" << hashPieceNumbers[pieceIndex][std::countr_zero(fromSquare)] << std::endl;
+        int toSquareIndex = std::countr_zero(toSquare);
+        assert(toSquareIndex < 64);
+        hash ^= hashPieceNumbers[capturedPieceIndex][toSquareIndex];
+        // std::cerr << "new hash: " << hash << std::endl;
         if (toSquare & h1Square)
             newCastlingRights &= 0b1110;
         else if (toSquare & a1Square)
@@ -135,11 +415,39 @@ Position Position::makeMove(Move move, bool commit)
             newCastlingRights &= 0b0111;
     }
     Types::PieceEnum nextPlayer = (currentPlayer == Types::white) ? Types::black : Types::white;
+
+    int enPassantRank = std::countr_zero(enPassantSquare) % 8;
+    int newEnPassantRank = std::countr_zero(newEnPassantSquare) % 8;
+    // std::cerr << "hash number for enPassantRank: " << enPassantRank << " : " << hashEnPassantSquare[enPassantRank] << std::endl;
+    hash ^= hashEnPassantSquare[enPassantRank];
+    // std::cerr << "new hash: " << hash << std::endl;
+    // std::cerr << "hash number for enPassantRank: " << newEnPassantRank << " : " << hashEnPassantSquare[newEnPassantRank] << std::endl;
+    hash ^= hashEnPassantSquare[newEnPassantRank];
+    // std::cerr << "new hash: " << hash << std::endl;
+    // std::cerr << "hash number for castlingRights: " << castlingRights << " : " << hashCastlingRights[castlingRights] << std::endl;
+    hash ^= hashCastlingRights[castlingRights];
+    // std::cerr << "new hash: " << hash << std::endl;
+    // std::cerr << "hash number for castlingRights: " << newCastlingRights << " : " << hashCastlingRights[newCastlingRights] << std::endl;
+    hash ^= hashCastlingRights[newCastlingRights];
+    // std::cerr << "new hash: " << hash << std::endl;
+    if (piece == Types::pawns || flags > Move::doublePush)
+    {
+        repetitionIndex = 0;
+    }
+    else
+    {
+        repetitionIndex++;
+    }
+
+    // std::cerr << hash << " " << repetitionIndex << std::endl;
+
     if (commit)
     {
-        return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, 0);
+        prevHashes[0] = repetitionTable[repetitionIndex];
+        return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, repetitionIndex, 0, hash);
     }
-    return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, depth + 1);
+    prevHashes[depth + 1] = repetitionTable[repetitionIndex];
+    return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, repetitionIndex, depth + 1, hash);
 }
 
 bool Position::makeMoveCheckIfLegal(Move move)
@@ -149,6 +457,44 @@ bool Position::makeMoveCheckIfLegal(Move move)
     uint64_t toSquare = move.getToSquare();
     Types::PieceEnum piece = move.getPiece();
     uint32_t flags = move.getFlags();
+
+    uint64_t hash = repetitionTable[repetitionIndex];
+    int pieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(piece) - 2);
+    hash ^= hashPieceNumbers[pieceIndex][std::countr_zero(fromSquare)];
+
+    if (flags >= Move::knightPromotion && flags <= Move::queenPromotionCapture)
+    {
+        int promotionPieceIndex;
+        switch (flags)
+        {
+        case Move::knightPromotion:
+        case Move::knightPromotionCapture:
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::knights) - 2);
+            break;
+        case Move::bishopPromotion:
+        case Move::bishopPromotionCapture:
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::bishops) - 2);
+            break;
+        case Move::rookPromotion:
+        case Move::rookPromotionCapture:
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::rooks) - 2);
+            break;
+        case Move::queenPromotion:
+        case Move::queenPromotionCapture:
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(Types::queens) - 2);
+            break;
+        default:
+            promotionPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(piece) - 2); // Should not reach here
+            break;
+        }
+        hash ^= hashPieceNumbers[promotionPieceIndex][std::countr_zero(toSquare)];
+    }
+    else
+    {
+        hash ^= hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)];
+    }
+
+    hash ^= hashBlackToMove;
 
     newBoard.makeMove(move, currentPlayer, depth);
     uint64_t newEnPassantSquare = 0;
@@ -195,6 +541,10 @@ bool Position::makeMoveCheckIfLegal(Move move)
     }
     if (flags == Move::capture || (flags >= Move::knightPromotionCapture && flags <= Move::queenPromotionCapture))
     {
+        int capturedPieceIndex = static_cast<int>(getOtherPlayer()) * 6 + (static_cast<int>(newBoard.getCapturedPiece(depth)) - 2);
+        int toSquareIndex = std::countr_zero(toSquare);
+        assert(toSquareIndex < 64);
+        hash ^= hashPieceNumbers[capturedPieceIndex][toSquareIndex];
         if (toSquare & h1Square)
             newCastlingRights &= 0b1110;
         else if (toSquare & a1Square)
@@ -204,7 +554,14 @@ bool Position::makeMoveCheckIfLegal(Move move)
         else if (toSquare & a8Square)
             newCastlingRights &= 0b0111;
     }
-    MoveGenerator moveGen;
+
+    int enPassantRank = std::countr_zero(enPassantSquare) % 8;
+    int newEnPassantRank = std::countr_zero(newEnPassantSquare) % 8;
+    hash ^= hashEnPassantSquare[enPassantRank];
+    hash ^= hashEnPassantSquare[newEnPassantRank];
+    hash ^= hashCastlingRights[castlingRights];
+    hash ^= hashCastlingRights[newCastlingRights];
+
     board = newBoard;
     enPassantSquare = newEnPassantSquare;
     castlingRights = newCastlingRights;
@@ -213,6 +570,21 @@ bool Position::makeMoveCheckIfLegal(Move move)
     prevEnPassantSquares[depth] = enPassantSquare;
     Types::PieceEnum otherPlayer = currentPlayer;
     currentPlayer = (currentPlayer == Types::white) ? Types::black : Types::white;
+
+    if (piece == Types::pawns || flags > Move::doublePush)
+    {
+        repetitionIndex = 0;
+    }
+    else
+    {
+        repetitionIndex++;
+    }
+
+    prevHashes[depth] = repetitionTable[repetitionIndex];
+    repetitionTable[repetitionIndex] = hash;
+    prevRepetitionIndices[depth] = repetitionIndex;
+
+    MoveGenerator moveGen;
     if (moveGen.attacked(newBoard.getPieceSet(otherPlayer, Types::kings), *this, currentPlayer))
     {
         return false;
@@ -232,39 +604,56 @@ void Position::unmakeMove(Move move)
 
     newBoard.addPiece(fromSquare, opponent, piece);
 
+    // uint64_t hash = repetitionTable[repetitionIndex];
+    // int pieceIndex = static_cast<int>(opponent) * 6 + (static_cast<int>(piece) - 2);
+    // hash ^= hashPieceNumbers[pieceIndex][std::countr_zero(fromSquare)];
+
+    // hash ^= hashBlackToMove;
+
     // Handle promotions
     if (flags >= Move::knightPromotion && flags <= Move::queenPromotionCapture)
     {
+        // int promotionPieceIndex;
         switch (flags)
         {
         case Move::knightPromotion:
         case Move::knightPromotionCapture:
             newBoard.removePiece(toSquare, opponent, Types::knights);
+            // promotionPieceIndex = static_cast<int>(opponent) * 6 + (static_cast<int>(Types::knights) - 2);
             break;
         case Move::bishopPromotion:
         case Move::bishopPromotionCapture:
             newBoard.removePiece(toSquare, opponent, Types::bishops);
+            // promotionPieceIndex = static_cast<int>(opponent) * 6 + (static_cast<int>(Types::bishops) - 2);
             break;
         case Move::rookPromotion:
         case Move::rookPromotionCapture:
             newBoard.removePiece(toSquare, opponent, Types::rooks);
+            // promotionPieceIndex = static_cast<int>(opponent) * 6 + (static_cast<int>(Types::rooks) - 2);
             break;
         case Move::queenPromotion:
         case Move::queenPromotionCapture:
             newBoard.removePiece(toSquare, opponent, Types::queens);
+            // promotionPieceIndex = static_cast<int>(opponent) * 6 + (static_cast<int>(Types::queens) - 2);
             break;
         default:
             break; // Should not reach here
         }
+        // hash ^= hashPieceNumbers[promotionPieceIndex][std::countr_zero(toSquare)];
     }
     else
     {
         newBoard.removePiece(toSquare, opponent, piece);
+        // hash ^= hashPieceNumbers[pieceIndex][std::countr_zero(toSquare)];
     }
 
     if (flags == Move::capture || (flags >= Move::knightPromotionCapture && flags <= Move::queenPromotionCapture))
     {
         // std::cout << "Restoring captured piece: " << newBoard.getCapturedPiece() << "\n";
+        // int capturedPieceIndex = static_cast<int>(currentPlayer) * 6 + (static_cast<int>(newBoard.getCapturedPiece(depth - 1)) - 2);
+        // std::cout << static_cast<int>(currentPlayer) << " " << newBoard.getCapturedPiece(depth - 1) << "\n";
+        // std::cout << capturedPieceIndex << std::endl;
+        // hash ^= hashPieceNumbers[capturedPieceIndex][std::countr_zero(toSquare)];
         newBoard.addPiece(toSquare, currentPlayer, newBoard.getCapturedPiece(depth - 1));
     }
 
@@ -327,9 +716,19 @@ void Position::unmakeMove(Move move)
     uint8_t prevCastlingRightsValue = prevCastlingRights[depth - 1];
     uint64_t prevEnPassantSquare = prevEnPassantSquares[depth - 1];
 
+    // int enPassantRank = std::countr_zero(enPassantSquare) % 8;
+    // int prevEnPassantRank = std::countr_zero(prevEnPassantSquare) % 8;
+    // hash ^= hashEnPassantSquare[enPassantRank];
+    // hash ^= hashEnPassantSquare[prevEnPassantRank];
+    // hash ^= hashCastlingRights[castlingRights];
+    // hash ^= hashCastlingRights[prevCastlingRightsValue];
+    // std::cerr << "unmake move " << move << " hash: " << hash << std::endl;
     board = newBoard;
     castlingRights = prevCastlingRightsValue;
     enPassantSquare = prevEnPassantSquare;
     depth -= 1;
     currentPlayer = opponent;
+
+    repetitionTable[repetitionIndex] = prevHashes[depth + 1];
+    repetitionIndex = prevRepetitionIndices[depth];
 }

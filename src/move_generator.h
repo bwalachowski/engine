@@ -105,9 +105,7 @@ class MoveGenerator
     uint64_t soWeOne(uint64_t board) { return (board >> 7) & notHFile; }
     uint64_t soEaOne(uint64_t board) { return (board >> 9) & notAFile; }
 
-    uint32_t squareForMove(int square);
-
-    bool shortCastleLegal(Position position, Types::PieceEnum color);
+        bool shortCastleLegal(Position position, Types::PieceEnum color);
     bool longCastleLegal(Position position, Types::PieceEnum color);
 
 public:
@@ -117,6 +115,7 @@ public:
     int generatePseudoLegalMoves(Position position, Move *moves);
     int checkMobility(Position position, Types::PieceEnum color);
     int checkPseudoLegalMobility(Position position, Types::PieceEnum color);
+    uint32_t squareForMove(int square);
 };
 
 #endif // #ifndef MOVE_GENERATOR_H
