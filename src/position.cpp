@@ -14,11 +14,13 @@ uint64_t Position::prevHashes[64] = {0};
 uint64_t Position::repetitionTable[120] = {0};
 int Position::prevRepetitionIndices[64] = {0};
 bool Position::hashesInitialized = false;
+int Position::prevPlies[64] = {0};
 
 Position::Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights)
     : board(board),
       currentPlayer(currentPlayer), castlingRights(castlingRights)
 {
+    plySinceCaptureOrPawnMove = 0;
     enPassantSquare = 0;
     depth = 0;
     repetitionIndex = 0;
@@ -32,6 +34,7 @@ Position::Position(Board board, Types::PieceEnum currentPlayer, uint8_t castling
 
 Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights) : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights)
 {
+    plySinceCaptureOrPawnMove = 0;
     depth = 0;
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
@@ -41,12 +44,13 @@ Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum curre
     repetitionTable[repetitionIndex] = getZobristHash();
 }
 
-Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash) : board(board),
-                                                                                                                                                                   enPassantSquare(enPassantSquare),
-                                                                                                                                                                   currentPlayer(currentPlayer),
-                                                                                                                                                                   castlingRights(castlingRights),
-                                                                                                                                                                   repetitionIndex(repetitionIndex),
-                                                                                                                                                                   depth(depth)
+Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash, int plySinceCaptureOrPawnMove) : board(board),
+                                                                                                                                                                                                  enPassantSquare(enPassantSquare),
+                                                                                                                                                                                                  currentPlayer(currentPlayer),
+                                                                                                                                                                                                  castlingRights(castlingRights),
+                                                                                                                                                                                                  repetitionIndex(repetitionIndex),
+                                                                                                                                                                                                  depth(depth),
+                                                                                                                                                                                                  plySinceCaptureOrPawnMove(plySinceCaptureOrPawnMove)
 
 {
     prevCastlingRights[depth] = castlingRights;
@@ -87,6 +91,10 @@ Position::Position(std::string fen)
         int rankIndex = rank - '1';
         enPassantSquare = 1ULL << (rankIndex * 8 - fileIndex);
     }
+    size_t plySinceCaptureOrPawnMovePos = fen.find(" ", castlingPos) + 1;
+    std::string plySinceCaptureOrPawnMoveStr = fen.substr(plySinceCaptureOrPawnMovePos, fen.find(" ", enPassantPos) - enPassantPos);
+    plySinceCaptureOrPawnMove = std::stoi(plySinceCaptureOrPawnMoveStr);
+
     depth = 0;
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
@@ -96,7 +104,7 @@ Position::Position(std::string fen)
     repetitionTable[repetitionIndex] = getZobristHash();
 }
 
-Position::Position(std::string pieces, std::string color, std::string castlingRightsFen, std::string enPassantSquareFen) : board(pieces)
+Position::Position(std::string pieces, std::string color, std::string castlingRightsFen, std::string enPassantSquareFen, std::string plySinceCaptureOrPawnMoveFen) : board(pieces)
 {
     currentPlayer = (color == "w") ? Types::white : Types::black;
     castlingRights = 0;
@@ -128,6 +136,7 @@ Position::Position(std::string pieces, std::string color, std::string castlingRi
     prevRepetitionIndices[depth] = repetitionIndex;
     initializeHashNumbers();
     repetitionTable[repetitionIndex] = getZobristHash();
+    plySinceCaptureOrPawnMove = std::stoi(plySinceCaptureOrPawnMoveFen);
 }
 
 Position::Position()
@@ -140,6 +149,7 @@ Position::Position()
     prevRepetitionIndices[depth] = repetitionIndex;
     initializeHashNumbers();
     repetitionTable[repetitionIndex] = getZobristHash();
+    plySinceCaptureOrPawnMove = 0;
 }
 
 void Position::initializeHashNumbers()
@@ -198,6 +208,10 @@ uint64_t Position::getZobristHash()
 
 bool Position::isDraw()
 {
+    if (plySinceCaptureOrPawnMove >= 100)
+    {
+        return true;
+    }
     int repetitionCount = 1;
     for (int i = repetitionIndex % 2; i < repetitionIndex; i += 2)
     {
@@ -440,14 +454,20 @@ Position Position::makeMove(Move move, bool commit)
     }
 
     // std::cerr << hash << " " << repetitionIndex << std::endl;
+    int newPlySinceCaptureOrPawnMove = plySinceCaptureOrPawnMove + 1;
+    if (piece == Types::pawns || flags == Move::capture)
+    {
+        newPlySinceCaptureOrPawnMove = 0;
+    }
+    prevPlies[depth] = plySinceCaptureOrPawnMove;
 
     if (commit)
     {
         prevHashes[0] = repetitionTable[repetitionIndex];
-        return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, repetitionIndex, 0, hash);
+        return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, repetitionIndex, 0, hash, newPlySinceCaptureOrPawnMove);
     }
     prevHashes[depth + 1] = repetitionTable[repetitionIndex];
-    return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, repetitionIndex, depth + 1, hash);
+    return Position(newBoard, newEnPassantSquare, nextPlayer, newCastlingRights, repetitionIndex, depth + 1, hash, newPlySinceCaptureOrPawnMove);
 }
 
 bool Position::makeMoveCheckIfLegal(Move move)
@@ -561,6 +581,17 @@ bool Position::makeMoveCheckIfLegal(Move move)
     hash ^= hashEnPassantSquare[newEnPassantRank];
     hash ^= hashCastlingRights[castlingRights];
     hash ^= hashCastlingRights[newCastlingRights];
+
+    prevPlies[depth] = plySinceCaptureOrPawnMove;
+
+    if (piece == Types::pawns || flags == Move::capture)
+    {
+        plySinceCaptureOrPawnMove = 0;
+    }
+    else
+    {
+        plySinceCaptureOrPawnMove = plySinceCaptureOrPawnMove + 1;
+    }
 
     board = newBoard;
     enPassantSquare = newEnPassantSquare;
@@ -731,4 +762,5 @@ void Position::unmakeMove(Move move)
 
     repetitionTable[repetitionIndex] = prevHashes[depth + 1];
     repetitionIndex = prevRepetitionIndices[depth];
+    plySinceCaptureOrPawnMove = prevPlies[depth];
 }

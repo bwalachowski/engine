@@ -214,8 +214,9 @@ void Engine::set_position(std::istringstream &is)
         std::string color;
         std::string castlingRights;
         std::string enPassantSquare;
-        is >> pieces >> color >> castlingRights >> enPassantSquare;
-        position = Position(pieces, color, castlingRights, enPassantSquare);
+        std::string plies;
+        is >> pieces >> color >> castlingRights >> enPassantSquare >> plies;
+        position = Position(pieces, color, castlingRights, enPassantSquare, plies);
     }
     is >> type;
 

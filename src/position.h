@@ -23,6 +23,8 @@ class Position
     static int prevRepetitionIndices[64];
     int depth;
     static bool hashesInitialized;
+    int plySinceCaptureOrPawnMove;
+    static int prevPlies[64];
 
     const static uint64_t a1Square = 0x80;
     const static uint64_t h1Square = 0x1;
@@ -37,10 +39,10 @@ public:
     Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights);
     Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights);
 
-    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash);
+    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash, int plySinceCaptureOrPawnMove);
 
     Position(std::string fen);
-    Position(std::string pieces, std::string color, std::string castlingRightsFen, std::string enPassantSquareFen);
+    Position(std::string pieces, std::string color, std::string castlingRightsFen, std::string enPassantSquareFen, std::string plySinceCaptureOrPawnMoveFen);
     Position();
 
     void initializeHashNumbers();
