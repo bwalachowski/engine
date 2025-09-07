@@ -9,6 +9,7 @@ void Engine::give_move(Position pos, int depth)
     int n_moves;
     Move best_move;
     int max_eval = -210000;
+    nodes++;
 
     n_moves = generator.generatePseudoLegalMoves(pos, moves[depth]);
 
@@ -28,7 +29,7 @@ void Engine::give_move(Position pos, int depth)
                     max_eval = eval;
                     best_move = moves[depth][i];
                 }
-                // std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
+                std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
             }
             pos.unmakeMove(moves[depth][i]);
         }
@@ -46,13 +47,13 @@ void Engine::give_move(Position pos, int depth)
                     max_eval = eval;
                     best_move = moves[depth][i];
                 }
-                // std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
+                std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
             }
             pos.unmakeMove(moves[depth][i]);
         }
         end = std::chrono::steady_clock::now();
     }
-    // std::cerr << "move: " << best_move << " eval: " << max_eval << "depth: " << depth << std::endl;
+    std::cerr << "move: " << best_move << " eval: " << max_eval << "depth: " << depth << std::endl;
     if (std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) < time)
     {
         stored_eval = max_eval;
@@ -62,7 +63,8 @@ void Engine::give_move(Position pos, int depth)
 
 int Engine::negamax(int alpha, int beta, Position pos, int depth)
 {
-
+    nodes++;
+    // int current_nodes = 0;
     if (pos.isDraw())
     {
         return 0;
@@ -80,6 +82,7 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
     {
         if (moves[depth][i].getFlags() == Move::capture)
         {
+            // current_nodes++;
             if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
                 int eval = -negamax(-beta, -alpha, pos, depth - 1);
@@ -94,6 +97,7 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
                 pos.unmakeMove(moves[depth][i]);
                 if (eval >= beta)
                 {
+                    // nodes_pruned += n_moves - current_nodes;
                     return max_eval;
                 }
             }
@@ -109,6 +113,7 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
     {
         if (moves[depth][i].getFlags() != Move::capture)
         {
+            // current_nodes++;
             if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
                 int eval = -negamax(-beta, -alpha, pos, depth - 1);
@@ -123,6 +128,7 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
                 pos.unmakeMove(moves[depth][i]);
                 if (eval >= beta)
                 {
+                    // nodes_pruned += n_moves = current_nodes;
                     return max_eval;
                 }
             }
@@ -185,6 +191,8 @@ void Engine::run()
     while (goBool)
     {
         mutex.lock();
+        nodes = 0;
+        // nodes_pruned = 0;
         begin = std::chrono::steady_clock::now();
         end = std::chrono::steady_clock::now();
         int depth = 1;
@@ -193,7 +201,7 @@ void Engine::run()
             give_move(position, depth++);
             end = std::chrono::steady_clock::now();
         }
-        std::cout << "info depth " << depth - 2 << " score cp " << stored_eval << std::endl;
+        std::cout << "info depth " << depth - 2 << " score cp " << stored_eval << " nodes " << nodes << std::endl;
         std::cout << "bestmove " << stored_best_move << std::endl;
     }
 }

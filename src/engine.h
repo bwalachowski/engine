@@ -23,6 +23,8 @@ class Engine
     Move stored_best_move;
     int stored_eval;
     bool initialized = false;
+    int nodes = 0;
+    // int nodes_pruned = 0;
 
 public:
     Engine() = default;

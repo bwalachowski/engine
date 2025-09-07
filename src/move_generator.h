@@ -49,6 +49,8 @@ class MoveGenerator
     void generatePawnPseudoLegalMoves(Move *moves,
                                       Position position, int *n_moves);
 
+    // void generatePseudoLegalMoves(uint32_t fromSquare, uint64_t movesToMake, Move *moves, int *n_moves, Types::PieceEnum movedPiece, Move::flagEnum flag, Types::PieceEnum capturedPiece = Types::white);
+
     int generateBishopPseudoLegalMobility(Position position, Types::PieceEnum color);
     int generateRookPseudoLegalMobility(Position position, Types::PieceEnum color);
     int generateQueenPseudoLegalMobility(Position position, Types::PieceEnum color);
@@ -105,7 +107,7 @@ class MoveGenerator
     uint64_t soWeOne(uint64_t board) { return (board >> 7) & notHFile; }
     uint64_t soEaOne(uint64_t board) { return (board >> 9) & notAFile; }
 
-        bool shortCastleLegal(Position position, Types::PieceEnum color);
+    bool shortCastleLegal(Position position, Types::PieceEnum color);
     bool longCastleLegal(Position position, Types::PieceEnum color);
 
 public:

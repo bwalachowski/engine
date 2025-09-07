@@ -79,12 +79,12 @@ int MoveGenerator::checkPseudoLegalMobility(Position position, Types::PieceEnum 
 int MoveGenerator::generatePseudoLegalMoves(Position position, Move *moves)
 {
     int n_moves = 0;
+    generatePawnPseudoLegalMoves(moves, position, &n_moves);
+    generateKnightPseudoLegalMoves(moves, position, &n_moves);
     generateBishopPseudoLegalMoves(moves, position, &n_moves);
     generateRookPseudoLegalMoves(moves, position, &n_moves);
     generateQueenPseudoLegalMoves(moves, position, &n_moves);
-    generateKnightPseudoLegalMoves(moves, position, &n_moves);
     generateKingPseudoLegalMoves(moves, position, &n_moves);
-    generatePawnPseudoLegalMoves(moves, position, &n_moves);
     return n_moves;
 }
 
@@ -208,6 +208,22 @@ int MoveGenerator::generatePawnPseudoLegalMobility(Position position, Types::Pie
     }
     return n_moves;
 }
+
+// void MoveGenerator::generatePseudoLegalMoves(uint32_t fromSquare, uint64_t movesToMake, Move *moves, int *n_moves, Types::PieceEnum movedPiece, Move::flagEnum flag, Types::PieceEnum capturedPiece)
+// {
+//     while (moves)
+//     {
+//         moves[*n_moves] = {fromSquare,
+//                            squareForMove(std::countr_zero(movesToMake)),
+//                            flag, capturedPiece};
+//         movesToMake &= movesToMake - 1;
+//         (*n_moves)++;
+//     }
+// }
+
+// void MoveGenerator::generateAttacksOnPiece(Types::PieceEnum pieceAttacked, Move *moves, int *n_moves, uint64_t knights, uint64_t bishops, uint64_t rooks, uint64_t queens){
+
+// }
 
 void MoveGenerator::generateBishopPseudoLegalMoves(Move *moves,
                                                    Position position, int *n_moves)
