@@ -23,13 +23,14 @@ void Engine::give_move(Position pos, int depth)
         {
             if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
-                int eval = -negamax(-200000, 200000, pos, depth - 1);
+                // std::cerr << "move: " << moves[depth][i] << "depth: " << depth << std::endl;
+                int eval = -negamax(-200000, 200000, pos, depth + 1);
                 if (eval > max_eval)
                 {
                     max_eval = eval;
                     best_move = moves[depth][i];
                 }
-                std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
+                // std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
             }
             pos.unmakeMove(moves[depth][i]);
         }
@@ -41,19 +42,22 @@ void Engine::give_move(Position pos, int depth)
         {
             if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
-                int eval = -negamax(-200000, 200000, pos, depth - 1);
+                // std::cerr << "move: " << moves[depth][i] << "depth: " << depth << std::endl;
+                int eval = -negamax(-200000, 200000, pos, depth + 1);
                 if (eval > max_eval)
                 {
                     max_eval = eval;
                     best_move = moves[depth][i];
                 }
-                std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
+                // std::cerr << "move: " << moves[depth][i] << " eval: " << eval << "depth: " << depth << std::endl;
             }
             pos.unmakeMove(moves[depth][i]);
         }
         end = std::chrono::steady_clock::now();
     }
-    std::cerr << "move: " << best_move << " eval: " << max_eval << "depth: " << depth << std::endl;
+
+    // std::cerr << "move: " << best_move << " eval: " << max_eval << "depth: " << depth << std::endl;
+
     if (std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) < time)
     {
         stored_eval = max_eval;
@@ -70,9 +74,10 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
         return 0;
     }
 
-    if (depth == 0)
+    if (depth == search_depth)
     {
-        return evaluate(pos);
+        // return evaluate(pos);
+        return quiesce(alpha, beta, pos, depth + 1);
     }
 
     int n_moves = generator.generatePseudoLegalMoves(pos, moves[depth]);
@@ -85,7 +90,7 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
             // current_nodes++;
             if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
-                int eval = -negamax(-beta, -alpha, pos, depth - 1);
+                int eval = -negamax(-beta, -alpha, pos, depth + 1);
                 if (eval > max_eval)
                 {
                     max_eval = eval;
@@ -116,7 +121,7 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
             // current_nodes++;
             if (pos.makeMoveCheckIfLegal(moves[depth][i]))
             {
-                int eval = -negamax(-beta, -alpha, pos, depth - 1);
+                int eval = -negamax(-beta, -alpha, pos, depth + 1);
                 if (eval > max_eval)
                 {
                     max_eval = eval;
@@ -144,8 +149,7 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
     {
         if (generator.attacked(pos.getPieceSet(pos.getCurrentPlayer(), Types::kings), pos, pos.getOtherPlayer()))
         {
-            // max_eval = (pos.getCurrentPlayer() == Types::white) ? (100000 + depth) : (-100000 - depth);
-            max_eval = -100000 - depth;
+            max_eval = -100000 - search_depth + depth;
         }
         else
         {
@@ -155,6 +159,64 @@ int Engine::negamax(int alpha, int beta, Position pos, int depth)
         {
             alpha = max_eval;
         }
+    }
+    return max_eval;
+}
+
+int Engine::quiesce(int alpha, int beta, Position pos, int depth)
+{
+    if (depth > seldepth)
+    {
+        seldepth = depth + 1;
+    }
+    nodes++;
+    quiescent_nodes++;
+    int max_eval = evaluate(pos);
+    if (depth >= 63)
+    {
+        return max_eval;
+    }
+    if (max_eval >= beta)
+    {
+        return max_eval;
+    }
+    if (max_eval > alpha)
+    {
+        alpha = max_eval;
+    }
+
+    int n_moves = generator.generatePseudoLegalCapturesAndPromotions(pos, moves[depth]);
+
+    for (int i = 0; i < n_moves && goBool && std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) < time; i++)
+    {
+
+        // current_nodes++;
+        if (pos.makeMoveCheckIfLegal(moves[depth][i]))
+        {
+            // std::cerr << "move: " << moves[depth][i] << "depth: " << depth << std::endl;
+            int eval = -quiesce(-beta, -alpha, pos, depth + 1);
+            if (eval > max_eval)
+            {
+                max_eval = eval;
+                if (eval > alpha)
+                {
+                    alpha = eval;
+                }
+            }
+            pos.unmakeMove(moves[depth][i]);
+
+            if (eval >= beta)
+            {
+                // nodes_pruned += n_moves - current_nodes;
+                return max_eval;
+            }
+        }
+        else
+        {
+            pos.unmakeMove(moves[depth][i]);
+        }
+
+        end = std::chrono::steady_clock::now();
     }
     return max_eval;
 }
@@ -172,18 +234,162 @@ int Engine::evaluate(Position pos)
     uint64_t black_rooks = pos.getPieceSet(Types::black, Types::rooks);
     uint64_t white_queens = pos.getPieceSet(Types::white, Types::queens);
     uint64_t black_queens = pos.getPieceSet(Types::black, Types::queens);
-    uint64_t white_kings = pos.getPieceSet(Types::white, Types::kings);
-    uint64_t black_kings = pos.getPieceSet(Types::black, Types::kings);
 
     score += 100 * std::popcount(white_pawns) - 100 * std::popcount(black_pawns);
     score += 300 * std::popcount(white_knights) - 300 * std::popcount(black_knights);
     score += 300 * std::popcount(white_bishops) - 300 * std::popcount(black_bishops);
     score += 500 * std::popcount(white_rooks) - 500 * std::popcount(black_rooks);
     score += 900 * std::popcount(white_queens) - 900 * std::popcount(black_queens);
-    score += 10000 * std::popcount(white_kings) - 10000 * std::popcount(black_kings);
     score += 10 * generator.checkPseudoLegalMobility(pos, Types::white) - 10 * generator.checkPseudoLegalMobility(pos, Types::black);
+    score += evaluate_piece_tables(pos);
 
     return (pos.getCurrentPlayer() == Types::white) ? score : -score;
+}
+
+int Engine::evaluate_piece_tables(Position pos)
+{
+    return evaluate_pawns_piece_tables(pos) + evaluate_bishops_piece_tables(pos) + evaluate_knights_piece_tables(pos) + evaluate_rooks_piece_tables(pos) + evaluate_queens_piece_tables(pos) + evaluate_kings_piece_tables(pos);
+}
+
+int Engine::evaluate_pawns_piece_tables(Position pos)
+{
+    int score = 0;
+    uint64_t white_pawns = pos.getPieceSet(Types::white, Types::pawns);
+    while (white_pawns)
+    {
+        int pawn = std::countr_zero(white_pawns);
+        score += pawns[FIELD_WHITE(pawn)];
+        white_pawns &= white_pawns - 1;
+    }
+    uint64_t black_pawns = pos.getPieceSet(Types::black, Types::pawns);
+    while (black_pawns)
+    {
+        int pawn = std::countr_zero(black_pawns);
+        score += pawns[FIELD_BLACK(pawn)];
+        black_pawns &= black_pawns - 1;
+    }
+    return score;
+}
+
+int Engine::evaluate_knights_piece_tables(Position pos)
+{
+    int score = 0;
+    uint64_t white_knights = pos.getPieceSet(Types::white, Types::knights);
+    while (white_knights)
+    {
+        int knight = std::countr_zero(white_knights);
+        score += knights[FIELD_WHITE(knight)];
+        white_knights &= white_knights - 1;
+    }
+    uint64_t black_knights = pos.getPieceSet(Types::black, Types::knights);
+    while (black_knights)
+    {
+        int knight = std::countr_zero(black_knights);
+        score -= knights[FIELD_BLACK(knight)];
+        black_knights &= black_knights - 1;
+    }
+    return score;
+}
+
+int Engine::evaluate_bishops_piece_tables(Position pos)
+{
+    int score = 0;
+    uint64_t white_bishops = pos.getPieceSet(Types::white, Types::bishops);
+    while (white_bishops)
+    {
+        int bishop = std::countr_zero(white_bishops);
+        score += bishops[FIELD_WHITE(bishop)];
+        white_bishops &= white_bishops - 1;
+    }
+    uint64_t black_bishops = pos.getPieceSet(Types::black, Types::bishops);
+    while (black_bishops)
+    {
+        int bishop = std::countr_zero(black_bishops);
+        score -= bishops[FIELD_BLACK(bishop)];
+        black_bishops &= black_bishops - 1;
+    }
+    return score;
+}
+
+int Engine::evaluate_rooks_piece_tables(Position pos)
+{
+    int score = 0;
+    uint64_t white_rooks = pos.getPieceSet(Types::white, Types::rooks);
+    while (white_rooks)
+    {
+        int rook = std::countr_zero(white_rooks);
+        score += rooks[FIELD_WHITE(rook)];
+        white_rooks &= white_rooks - 1;
+    }
+    uint64_t black_rooks = pos.getPieceSet(Types::black, Types::rooks);
+    while (black_rooks)
+    {
+        int rook = std::countr_zero(black_rooks);
+        score -= rooks[FIELD_BLACK(rook)];
+        black_rooks &= black_rooks - 1;
+    }
+    return score;
+}
+
+int Engine::evaluate_queens_piece_tables(Position pos)
+{
+    int score = 0;
+    uint64_t white_queens = pos.getPieceSet(Types::white, Types::queens);
+    while (white_queens)
+    {
+        int queen = std::countr_zero(white_queens);
+        score += queens[FIELD_WHITE(queen)];
+        white_queens &= white_queens - 1;
+    }
+    uint64_t black_queens = pos.getPieceSet(Types::black, Types::queens);
+    while (black_queens)
+    {
+        int queen = std::countr_zero(black_queens);
+        score -= queens[FIELD_BLACK(queen)];
+        black_queens &= black_queens - 1;
+    }
+    return score;
+}
+
+int Engine::evaluate_kings_piece_tables(Position pos)
+{
+    int score = 0;
+
+    if (pos.getNumberOfPieces() > 4)
+    {
+        uint64_t white_king = pos.getPieceSet(Types::white, Types::kings);
+        while (white_king)
+        {
+            int king = std::countr_zero(white_king);
+            score += king_mg[FIELD_WHITE(king)];
+            white_king &= white_king - 1;
+        }
+        uint64_t black_king = pos.getPieceSet(Types::black, Types::kings);
+        while (black_king)
+        {
+            int king = std::countr_zero(black_king);
+            score -= king_mg[FIELD_BLACK(king)];
+            black_king &= black_king - 1;
+        }
+    }
+    else
+    {
+        uint64_t white_king = pos.getPieceSet(Types::white, Types::kings);
+        while (white_king)
+        {
+            int king = std::countr_zero(white_king);
+            score += king_eg[FIELD_WHITE(king)];
+            white_king &= white_king - 1;
+        }
+        uint64_t black_king = pos.getPieceSet(Types::black, Types::kings);
+        while (black_king)
+        {
+            int king = std::countr_zero(black_king);
+            score -= king_eg[FIELD_BLACK(king)];
+            black_king &= black_king - 1;
+        }
+    }
+    return score;
 }
 
 void Engine::run()
@@ -195,13 +401,16 @@ void Engine::run()
         // nodes_pruned = 0;
         begin = std::chrono::steady_clock::now();
         end = std::chrono::steady_clock::now();
-        int depth = 1;
-        while (std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) < time && depth < 64)
+        search_depth = 1;
+        quiescent_nodes = 0;
+        // int curr_seldepth = 0;
+        while (std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) < time && search_depth < 64)
         {
-            give_move(position, depth++);
+            give_move(position, 0);
+            search_depth++;
             end = std::chrono::steady_clock::now();
         }
-        std::cout << "info depth " << depth - 2 << " score cp " << stored_eval << " nodes " << nodes << std::endl;
+        std::cout << "info depth " << search_depth - 2 << " score cp " << stored_eval << " nodes " << nodes << std::endl;
         std::cout << "bestmove " << stored_best_move << std::endl;
     }
 }

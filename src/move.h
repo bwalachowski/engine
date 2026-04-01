@@ -15,6 +15,7 @@ class Move
     */
     uint32_t move;
     Types::PieceEnum piece;
+    Types::PieceEnum pieceTaken;
 
 public:
     enum flagEnum : uint32_t
@@ -35,7 +36,8 @@ public:
         queenPromotionCapture = 15
     };
     Move(uint32_t from, uint32_t to, uint32_t flags, Types::PieceEnum piece);
-    Move() : move(0), piece(Types::pawns) {}; // null move
+    Move(uint32_t from, uint32_t to, uint32_t flags, Types::PieceEnum piece, Types::PieceEnum pieceTaken);
+    Move() : move(0), piece(Types::pawns), pieceTaken(Types::white) {}; // null move
 
     std::string getLongAlgebraicNotation() const;
 

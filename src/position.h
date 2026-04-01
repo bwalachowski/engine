@@ -36,8 +36,8 @@ class Position
     const static uint64_t d8Square = 0x1000000000000000;
 
 public:
-    Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights);
-    Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights);
+    // Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights);
+    // Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights);
 
     Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash, int plySinceCaptureOrPawnMove);
 
@@ -53,6 +53,7 @@ public:
     }
     uint64_t getPieceSet(Types::PieceEnum i) { return board.getPieceSet(i); }
     uint64_t getAllPieces() { return board.getAllPieces(); }
+    int getNumberOfPieces() { return board.getNumberOfPieces(); }
     uint64_t getZobristHash();
 
     bool isDraw();

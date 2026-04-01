@@ -67,24 +67,49 @@ int MoveGenerator::checkMobility(Position position, Types::PieceEnum color)
 int MoveGenerator::checkPseudoLegalMobility(Position position, Types::PieceEnum color)
 {
     int n_moves = 0;
+    n_moves += generateKnightPseudoLegalMobility(position, color);
     n_moves += generateBishopPseudoLegalMobility(position, color);
     n_moves += generateRookPseudoLegalMobility(position, color);
-    n_moves += generateQueenPseudoLegalMobility(position, color);
-    n_moves += generateKnightPseudoLegalMobility(position, color);
-    n_moves += generateKingPseudoLegalMobility(position, color);
-    n_moves += generatePawnPseudoLegalMobility(position, color);
+    if (position.getNumberOfPieces() > 4)
+    {
+        n_moves += (generateQueenPseudoLegalMobility(position, color) / 2);
+        n_moves -= generateKingPseudoLegalMobility(position, color);
+    }
+    else
+    {
+        n_moves += generateQueenPseudoLegalMobility(position, color);
+        n_moves += generateKingPseudoLegalMobility(position, color);
+    }
+
+    return n_moves;
+}
+
+int MoveGenerator::generatePseudoLegalCapturesAndPromotions(Position position, Move *moves)
+{
+    int n_moves = 0;
+    for (int i = Types::queens; i >= Types::pawns; --i)
+    {
+        generatePawnPseudoLegalCapturesOnPiece(moves, position, &n_moves, static_cast<Types::PieceEnum>(i));
+        generateKnightPseudoLegalCapturesOnPiece(moves, position, &n_moves, static_cast<Types::PieceEnum>(i));
+        generateBishopPseudoLegalCapturesOnPiece(moves, position, &n_moves, static_cast<Types::PieceEnum>(i));
+        generateRookPseudoLegalCapturesOnPiece(moves, position, &n_moves, static_cast<Types::PieceEnum>(i));
+        generateQueenPseudoLegalCapturesOnPiece(moves, position, &n_moves, static_cast<Types::PieceEnum>(i));
+        generateKingPseudoLegalMovesCapturesOnPiece(moves, position, &n_moves, static_cast<Types::PieceEnum>(i));
+    }
+    generatePawnPseudoLegalPromotions(moves, position, &n_moves);
     return n_moves;
 }
 
 int MoveGenerator::generatePseudoLegalMoves(Position position, Move *moves)
 {
     int n_moves = 0;
-    generatePawnPseudoLegalMoves(moves, position, &n_moves);
-    generateKnightPseudoLegalMoves(moves, position, &n_moves);
-    generateBishopPseudoLegalMoves(moves, position, &n_moves);
-    generateRookPseudoLegalMoves(moves, position, &n_moves);
-    generateQueenPseudoLegalMoves(moves, position, &n_moves);
-    generateKingPseudoLegalMoves(moves, position, &n_moves);
+    n_moves += generatePseudoLegalCapturesAndPromotions(position, moves);
+    generatePawnPseudoLegalQuietMoves(moves, position, &n_moves);
+    generateKnightPseudoLegalQuietMoves(moves, position, &n_moves);
+    generateBishopPseudoLegalQuietMoves(moves, position, &n_moves);
+    generateRookPseudoLegalQuietMoves(moves, position, &n_moves);
+    generateQueenPseudoLegalQuietMoves(moves, position, &n_moves);
+    generateKingPseudoLegalQuietMoves(moves, position, &n_moves);
     return n_moves;
 }
 
@@ -221,12 +246,314 @@ int MoveGenerator::generatePawnPseudoLegalMobility(Position position, Types::Pie
 //     }
 // }
 
-// void MoveGenerator::generateAttacksOnPiece(Types::PieceEnum pieceAttacked, Move *moves, int *n_moves, uint64_t knights, uint64_t bishops, uint64_t rooks, uint64_t queens){
+void MoveGenerator::generatePawnPseudoLegalCapturesOnPiece(Move *moves, Position position, int *n_moves, Types::PieceEnum piece)
+{
+    uint64_t currentPlayerPawns = position.getPieceSet(position.getCurrentPlayer(), Types::pawns);
+    if (position.getCurrentPlayer() == Types::white)
+    {
+        uint64_t whitePawnEastAttacksPromotion = (whitePawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece)) & ~not8Rank;
+        // std::cout << "White pawn east attacks promotion: " << whitePawnEastAttacksPromotion << "\n";
+        while (whitePawnEastAttacksPromotion)
+        {
+            int lastPawn = std::countr_zero(whitePawnEastAttacksPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn - 7),
+                               squareForMove(lastPawn),
+                               Move::knightPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn - 7),
+                               squareForMove(lastPawn),
+                               Move::bishopPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn - 7),
+                               squareForMove(lastPawn),
+                               Move::queenPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn - 7),
+                               squareForMove(lastPawn), Move::rookPromotionCapture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            whitePawnEastAttacksPromotion &= whitePawnEastAttacksPromotion - 1;
+        }
 
+        uint64_t whitePawnWestAttacksPromotion = whitePawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece) & ~not8Rank;
+        while (whitePawnWestAttacksPromotion)
+        {
+            int lastPawn = std::countr_zero(whitePawnWestAttacksPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn - 9),
+                               squareForMove(lastPawn),
+                               Move::knightPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn - 9),
+                               squareForMove(lastPawn),
+                               Move::bishopPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn - 9),
+                               squareForMove(lastPawn),
+                               Move::queenPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn - 9),
+                               squareForMove(lastPawn), Move::rookPromotionCapture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            whitePawnWestAttacksPromotion &= whitePawnWestAttacksPromotion - 1;
+        }
+
+        uint64_t whitePawnEastAttacksNoPromotion = (whitePawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece)) & not8Rank;
+        // std::cout << "White pawn east attacks no promotion: " << whitePawnEastAttacksNoPromotion << "\n";
+        // std::cout << "WhitePawnEastAttackTargets: " << whitePawnEastAttackTargets(currentPlayerPawns) << "\n";
+        while (whitePawnEastAttacksNoPromotion)
+        {
+            int lastPawn = std::countr_zero(whitePawnEastAttacksNoPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn - 7),
+                               squareForMove(lastPawn), Move::capture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            whitePawnEastAttacksNoPromotion &= whitePawnEastAttacksNoPromotion - 1;
+        }
+        if (piece == Types::pawns)
+        {
+            uint64_t whitePawnEastAttackEnPassant = whitePawnEastAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
+            if (whitePawnEastAttackEnPassant)
+            {
+                int lastPawn = std::countr_zero(whitePawnEastAttackEnPassant);
+                moves[*n_moves] = {squareForMove(lastPawn - 7),
+                                   squareForMove(lastPawn), Move::enPassant,
+                                   Types::pawns, piece};
+                (*n_moves)++;
+            }
+            uint64_t whitePawnWestAttackEnPassant = whitePawnWestAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
+            if (whitePawnWestAttackEnPassant)
+            {
+                int lastPawn = std::countr_zero(whitePawnWestAttackEnPassant);
+                moves[*n_moves] = {squareForMove(lastPawn - 9),
+                                   squareForMove(lastPawn), Move::enPassant,
+                                   Types::pawns, piece};
+                (*n_moves)++;
+            }
+        }
+        uint64_t whitePawnWestAttacksNoPromotion = whitePawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece) & not8Rank;
+        // std::cout << "WhitePawnWestAttackTargets: " << whitePawnWestAttackTargets(currentPlayerPawns) << "\n";
+        while (whitePawnWestAttacksNoPromotion)
+        {
+            int lastPawn = std::countr_zero(whitePawnWestAttacksNoPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn - 9),
+                               squareForMove(lastPawn), Move::capture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            whitePawnWestAttacksNoPromotion &= whitePawnWestAttacksNoPromotion - 1;
+        }
+    }
+    if (position.getCurrentPlayer() == Types::black)
+    {
+        uint64_t blackPawnEastAttacksPromotion = (blackPawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece)) & ~not1Rank;
+        while (blackPawnEastAttacksPromotion)
+        {
+            int lastPawn = std::countr_zero(blackPawnEastAttacksPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn + 9),
+                               squareForMove(lastPawn),
+                               Move::knightPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn + 9),
+                               squareForMove(lastPawn),
+                               Move::bishopPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn + 9),
+                               squareForMove(lastPawn),
+                               Move::queenPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn + 9),
+                               squareForMove(lastPawn), Move::rookPromotionCapture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            blackPawnEastAttacksPromotion &= blackPawnEastAttacksPromotion - 1;
+        }
+        uint64_t blackPawnWestAttacksPromotion = blackPawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece) & ~not1Rank;
+        while (blackPawnWestAttacksPromotion)
+        {
+            int lastPawn = std::countr_zero(blackPawnWestAttacksPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn + 7),
+                               squareForMove(lastPawn),
+                               Move::knightPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn + 7),
+                               squareForMove(lastPawn),
+                               Move::bishopPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn + 7),
+                               squareForMove(lastPawn),
+                               Move::queenPromotionCapture, Types::pawns, piece};
+            (*n_moves)++;
+            moves[*n_moves] = {squareForMove(lastPawn + 7),
+                               squareForMove(lastPawn), Move::rookPromotionCapture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            blackPawnWestAttacksPromotion &= blackPawnWestAttacksPromotion - 1;
+        }
+        uint64_t blackPawnEastAttacksNoPromotion = (blackPawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece)) & not1Rank;
+        while (blackPawnEastAttacksNoPromotion)
+        {
+            int lastPawn = std::countr_zero(blackPawnEastAttacksNoPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn + 9),
+                               squareForMove(lastPawn), Move::capture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            blackPawnEastAttacksNoPromotion &= blackPawnEastAttacksNoPromotion - 1;
+        }
+        if (piece == Types::pawns)
+        {
+            uint64_t blackPawnEastAttackEnPassant = blackPawnEastAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
+            if (blackPawnEastAttackEnPassant)
+            {
+                int lastPawn = std::countr_zero(blackPawnEastAttackEnPassant);
+                moves[*n_moves] = {squareForMove(lastPawn + 9),
+                                   squareForMove(lastPawn), Move::enPassant,
+                                   Types::pawns, piece};
+                (*n_moves)++;
+            }
+            uint64_t blackPawnWestAttackEnPassant = blackPawnWestAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
+            if (blackPawnWestAttackEnPassant)
+            {
+                int lastPawn = std::countr_zero(blackPawnWestAttackEnPassant);
+                moves[*n_moves] = {squareForMove(lastPawn + 7),
+                                   squareForMove(lastPawn), Move::enPassant,
+                                   Types::pawns, piece};
+                (*n_moves)++;
+            }
+        }
+        uint64_t blackPawnWestAttacksNoPromotion = blackPawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer(), piece) & not1Rank;
+        while (blackPawnWestAttacksNoPromotion)
+        {
+            int lastPawn = std::countr_zero(blackPawnWestAttacksNoPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn + 7),
+                               squareForMove(lastPawn), Move::capture,
+                               Types::pawns, piece};
+            (*n_moves)++;
+            blackPawnWestAttacksNoPromotion &= blackPawnWestAttacksNoPromotion - 1;
+        }
+    }
+}
+
+void MoveGenerator::generateKnightPseudoLegalCapturesOnPiece(Move *moves, Position position, int *n_moves, Types::PieceEnum piece)
+{
+    uint64_t currentPlayerKnights = position.getPieceSet(position.getCurrentPlayer(), Types::knights);
+    while (currentPlayerKnights)
+    {
+        uint32_t knight = std::countr_zero(currentPlayerKnights);
+        uint32_t fromSquare = squareForMove(knight);
+        uint64_t knightAttacks = position.getPieceSet(position.getOtherPlayer(), piece) & knightAttacksEmptyBoard[knight];
+        while (knightAttacks)
+        {
+            moves[*n_moves] = {fromSquare,
+                               squareForMove(std::countr_zero(knightAttacks)),
+                               Move::capture, Types::knights, piece};
+            knightAttacks &= knightAttacks - 1;
+            (*n_moves)++;
+        }
+        currentPlayerKnights &= currentPlayerKnights - 1;
+    }
+}
+
+void MoveGenerator::generateBishopPseudoLegalCapturesOnPiece(Move *moves, Position position, int *n_moves, Types::PieceEnum piece)
+{
+    uint64_t currentPlayerBishops = position.getPieceSet(position.getCurrentPlayer(), Types::bishops);
+    while (currentPlayerBishops)
+    {
+        uint32_t bishop = std::countr_zero(currentPlayerBishops);
+        uint32_t fromSquare = squareForMove(bishop);
+        uint64_t bishopAttacks = position.getPieceSet(position.getOtherPlayer(), piece) & singleBishopMoves(bishop, position);
+        while (bishopAttacks)
+        {
+            moves[*n_moves] = {fromSquare,
+                               squareForMove(std::countr_zero(bishopAttacks)),
+                               Move::capture, Types::bishops, piece};
+            bishopAttacks &= bishopAttacks - 1;
+            (*n_moves)++;
+        }
+        currentPlayerBishops &= currentPlayerBishops - 1;
+    }
+}
+
+void MoveGenerator::generateRookPseudoLegalCapturesOnPiece(Move *moves, Position position, int *n_moves, Types::PieceEnum piece)
+{
+    uint64_t currentPlayerRooks = position.getPieceSet(position.getCurrentPlayer(), Types::rooks);
+    while (currentPlayerRooks)
+    {
+        uint32_t rook = std::countr_zero(currentPlayerRooks);
+        uint32_t fromSquare = squareForMove(rook);
+        uint64_t rookAttacks = position.getPieceSet(position.getOtherPlayer(), piece) & singleRookMoves(rook, position);
+        while (rookAttacks)
+        {
+            moves[*n_moves] = {fromSquare,
+                               squareForMove(std::countr_zero(rookAttacks)),
+                               Move::capture, Types::rooks, piece};
+            rookAttacks &= rookAttacks - 1;
+            (*n_moves)++;
+        }
+        currentPlayerRooks &= currentPlayerRooks - 1;
+    }
+}
+
+void MoveGenerator::generateQueenPseudoLegalCapturesOnPiece(Move *moves, Position position, int *n_moves, Types::PieceEnum piece)
+{
+
+    uint64_t currentPlayerQueens = position.getPieceSet(position.getCurrentPlayer(), Types::queens);
+    while (currentPlayerQueens)
+    {
+        uint32_t queen = std::countr_zero(currentPlayerQueens);
+        uint32_t fromSquare = squareForMove(queen);
+        uint64_t queenAttacks = position.getPieceSet(position.getOtherPlayer(), piece) & (singleBishopMoves(queen, position) | singleRookMoves(queen, position));
+        while (queenAttacks)
+        {
+            moves[*n_moves] = {fromSquare,
+                               squareForMove(std::countr_zero(queenAttacks)),
+                               Move::capture, Types::queens, piece};
+            queenAttacks &= queenAttacks - 1;
+            (*n_moves)++;
+        }
+        currentPlayerQueens &= currentPlayerQueens - 1;
+    }
+}
+
+void MoveGenerator::generateKingPseudoLegalMovesCapturesOnPiece(Move *moves, Position position, int *n_moves, Types::PieceEnum piece)
+{
+    uint64_t currentPlayerKing = position.getPieceSet(position.getCurrentPlayer(), Types::kings);
+    uint32_t king = std::countr_zero(currentPlayerKing);
+    uint32_t fromSquare = squareForMove(king);
+    uint64_t kingAttacks = kingAttacksEmptyBoard[king] & position.getPieceSet(position.getOtherPlayer(), piece);
+    while (kingAttacks)
+    {
+        moves[*n_moves] = {fromSquare,
+                           squareForMove(std::countr_zero(kingAttacks)),
+                           Move::capture, Types::kings, piece};
+        kingAttacks &= kingAttacks - 1;
+        (*n_moves)++;
+    }
+}
+
+// void MoveGenerator::generateAttacksOnPiece(Types::PieceEnum pieceAttacked, Move *moves, int *n_moves, uint64_t piecesAttacked, uint64_t knights, uint64_t bishops, uint64_t rooks, uint64_t queens, uint64_t kings, position )
+// {
+//     if (piecesAttacked)
+//     {
+//         while (knights)
+//         {
+//             uint32_t knight = std::countr_zero(knights);
+//             uint32_t fromSquare = squareForMove(knight);
+//             uint64_t knightAttacks = position.getPieceSet(position.getOtherPlayer()) & knightAttacksEmptyBoard[knight];
+//             generatePseudoLegalMoves(fromSquare, knightAttacks, moves, n_moves, Types::knights, Move::capture, pieceAttacked);
+//             knights &= knights - 1;
+//         }
+//         while (bishops)
+//         {
+//             uint32_t bishop = std::countr_zero(bishops);
+//             uint32_t fromSquare = squareForMove(bishop);
+//             uint64_t knightAttacks = position.getPieceSet(position.getOtherPlayer()) & singleBishopMoves(bishop, position);
+//             generatePseudoLegalMoves(fromSquare, knightAttacks, moves, n_moves, Types::knights, Move::capture, pieceAttacked);
+//         }
+//     }
 // }
 
-void MoveGenerator::generateBishopPseudoLegalMoves(Move *moves,
-                                                   Position position, int *n_moves)
+void MoveGenerator::generateBishopPseudoLegalQuietMoves(Move *moves,
+                                                        Position position, int *n_moves)
 {
     uint64_t currentPlayerBishops = position.getPieceSet(position.getCurrentPlayer(), Types::bishops);
     while (currentPlayerBishops)
@@ -236,14 +563,6 @@ void MoveGenerator::generateBishopPseudoLegalMoves(Move *moves,
         uint64_t bishopMoves = ~position.getPieceSet(position.getCurrentPlayer()) & singleBishopMoves(bishop, position);
         uint64_t bishopAttacks = position.getPieceSet(position.getOtherPlayer()) & bishopMoves;
         bishopMoves &= ~bishopAttacks;
-        while (bishopAttacks)
-        {
-            moves[*n_moves] = {fromSquare,
-                               squareForMove(std::countr_zero(bishopAttacks)),
-                               Move::capture, Types::bishops};
-            bishopAttacks &= bishopAttacks - 1;
-            (*n_moves)++;
-        }
         while (bishopMoves)
         {
             moves[*n_moves] = {fromSquare,
@@ -256,8 +575,8 @@ void MoveGenerator::generateBishopPseudoLegalMoves(Move *moves,
     }
 }
 
-void MoveGenerator::generateRookPseudoLegalMoves(Move *moves,
-                                                 Position position, int *n_moves)
+void MoveGenerator::generateRookPseudoLegalQuietMoves(Move *moves,
+                                                      Position position, int *n_moves)
 {
     uint64_t currentPlayerRooks = position.getPieceSet(position.getCurrentPlayer(), Types::rooks);
     while (currentPlayerRooks)
@@ -269,14 +588,6 @@ void MoveGenerator::generateRookPseudoLegalMoves(Move *moves,
         // std::cout << "Rook attacks: " << rookAttacks << "\n";
         // std::cout << "Rook moves: " << rookMoves << "\n";
         rookMoves &= ~rookAttacks;
-        while (rookAttacks)
-        {
-            moves[*n_moves] = {fromSquare,
-                               squareForMove(std::countr_zero(rookAttacks)),
-                               Move::capture, Types::rooks};
-            rookAttacks &= rookAttacks - 1;
-            (*n_moves)++;
-        }
         while (rookMoves)
         {
             moves[*n_moves] = {fromSquare,
@@ -289,8 +600,8 @@ void MoveGenerator::generateRookPseudoLegalMoves(Move *moves,
     }
 }
 
-void MoveGenerator::generateQueenPseudoLegalMoves(Move *moves,
-                                                  Position position, int *n_moves)
+void MoveGenerator::generateQueenPseudoLegalQuietMoves(Move *moves,
+                                                       Position position, int *n_moves)
 {
     uint64_t currentPlayerQueens = position.getPieceSet(position.getCurrentPlayer(), Types::queens);
     while (currentPlayerQueens)
@@ -300,14 +611,6 @@ void MoveGenerator::generateQueenPseudoLegalMoves(Move *moves,
         uint64_t queenMoves = ~position.getPieceSet(position.getCurrentPlayer()) & (singleBishopMoves(queen, position) | singleRookMoves(queen, position));
         uint64_t queenAttacks = position.getPieceSet(position.getOtherPlayer()) & queenMoves;
         queenMoves &= ~queenAttacks;
-        while (queenAttacks)
-        {
-            moves[*n_moves] = {fromSquare,
-                               squareForMove(std::countr_zero(queenAttacks)),
-                               Move::capture, Types::queens};
-            queenAttacks &= queenAttacks - 1;
-            (*n_moves)++;
-        }
         while (queenMoves)
         {
             moves[*n_moves] = {fromSquare,
@@ -320,8 +623,8 @@ void MoveGenerator::generateQueenPseudoLegalMoves(Move *moves,
     }
 }
 
-void MoveGenerator::generateKnightPseudoLegalMoves(Move *moves,
-                                                   Position position, int *n_moves)
+void MoveGenerator::generateKnightPseudoLegalQuietMoves(Move *moves,
+                                                        Position position, int *n_moves)
 {
     uint64_t currentPlayerKnights = position.getPieceSet(position.getCurrentPlayer(), Types::knights);
     while (currentPlayerKnights)
@@ -333,14 +636,6 @@ void MoveGenerator::generateKnightPseudoLegalMoves(Move *moves,
         // std::cout << "Knight attacks: " << knightAttacks << "\n";
         // std::cout << "Knight moves: " << knightMoves << "\n";
         knightMoves &= ~knightAttacks;
-        while (knightAttacks)
-        {
-            moves[*n_moves] = {fromSquare,
-                               squareForMove(std::countr_zero(knightAttacks)),
-                               Move::capture, Types::knights};
-            knightAttacks &= knightAttacks - 1;
-            (*n_moves)++;
-        }
         while (knightMoves)
         {
             moves[*n_moves] = {fromSquare,
@@ -354,8 +649,8 @@ void MoveGenerator::generateKnightPseudoLegalMoves(Move *moves,
     }
 }
 
-void MoveGenerator::generateKingPseudoLegalMoves(Move *moves,
-                                                 Position position, int *n_moves)
+void MoveGenerator::generateKingPseudoLegalQuietMoves(Move *moves,
+                                                      Position position, int *n_moves)
 {
     uint64_t currentPlayerKing = position.getPieceSet(position.getCurrentPlayer(), Types::kings);
     uint32_t king = std::countr_zero(currentPlayerKing);
@@ -365,14 +660,6 @@ void MoveGenerator::generateKingPseudoLegalMoves(Move *moves,
     // std::cout << "King attacks: " << kingAttacks << "\n";
     // std::cout << "King moves: " << kingMoves << "\n";
     kingMoves &= ~kingAttacks;
-    while (kingAttacks)
-    {
-        moves[*n_moves] = {fromSquare,
-                           squareForMove(std::countr_zero(kingAttacks)),
-                           Move::capture, Types::kings};
-        kingAttacks &= kingAttacks - 1;
-        (*n_moves)++;
-    }
     while (kingMoves)
     {
         moves[*n_moves] = {fromSquare,
@@ -409,8 +696,8 @@ void MoveGenerator::generateKingPseudoLegalMoves(Move *moves,
     }
 }
 
-void MoveGenerator::generatePawnPseudoLegalMoves(Move *moves,
-                                                 Position position, int *n_moves)
+void MoveGenerator::generatePawnPseudoLegalQuietMoves(Move *moves,
+                                                      Position position, int *n_moves)
 {
     uint64_t currentPlayerPawns = position.getPieceSet(position.getCurrentPlayer(), Types::pawns);
     if (position.getCurrentPlayer() == Types::white)
@@ -425,6 +712,47 @@ void MoveGenerator::generatePawnPseudoLegalMoves(Move *moves,
             (*n_moves)++;
             whiteSinglePushNoPromotion &= whiteSinglePushNoPromotion - 1;
         }
+        uint64_t whiteDoublePush = whiteDoublePushTargets(currentPlayerPawns, position);
+        while (whiteDoublePush)
+        {
+            int lastPawn = std::countr_zero(whiteDoublePush);
+            moves[*n_moves] = {squareForMove(lastPawn - 16),
+                               squareForMove(lastPawn), Move::doublePush,
+                               Types::pawns};
+            (*n_moves)++;
+            whiteDoublePush &= whiteDoublePush - 1;
+        }
+    }
+    if (position.getCurrentPlayer() == Types::black)
+    {
+        uint64_t blackSinglePushNoPromotion = blackSinglePushTargets(currentPlayerPawns, position) & not1Rank;
+        while (blackSinglePushNoPromotion)
+        {
+            int lastPawn = std::countr_zero(blackSinglePushNoPromotion);
+            moves[*n_moves] = {squareForMove(lastPawn + 8),
+                               squareForMove(lastPawn), Move::quiet,
+                               Types::pawns};
+            (*n_moves)++;
+            blackSinglePushNoPromotion &= blackSinglePushNoPromotion - 1;
+        }
+        uint64_t blackDoublePush = blackDoublePushTargets(currentPlayerPawns, position);
+        while (blackDoublePush)
+        {
+            int lastPawn = std::countr_zero(blackDoublePush);
+            moves[*n_moves] = {squareForMove(lastPawn + 16),
+                               squareForMove(lastPawn), Move::doublePush,
+                               Types::pawns};
+            (*n_moves)++;
+            blackDoublePush &= blackDoublePush - 1;
+        }
+    }
+}
+
+void MoveGenerator::generatePawnPseudoLegalPromotions(Move *moves, Position position, int *n_moves)
+{
+    uint64_t currentPlayerPawns = position.getPieceSet(position.getCurrentPlayer(), Types::pawns);
+    if (position.getCurrentPlayer() == Types::white)
+    {
         uint64_t whiteSinglePushPromotion = whiteSinglePushTargets(currentPlayerPawns, position) & ~not8Rank;
         while (whiteSinglePushPromotion)
         {
@@ -447,115 +775,9 @@ void MoveGenerator::generatePawnPseudoLegalMoves(Move *moves,
             (*n_moves)++;
             whiteSinglePushPromotion &= whiteSinglePushPromotion - 1;
         }
-        uint64_t whiteDoublePush = whiteDoublePushTargets(currentPlayerPawns, position);
-        while (whiteDoublePush)
-        {
-            int lastPawn = std::countr_zero(whiteDoublePush);
-            moves[*n_moves] = {squareForMove(lastPawn - 16),
-                               squareForMove(lastPawn), Move::doublePush,
-                               Types::pawns};
-            (*n_moves)++;
-            whiteDoublePush &= whiteDoublePush - 1;
-        }
-        uint64_t whitePawnEastAttacksNoPromotion = (whitePawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer())) & not8Rank;
-        // std::cout << "White pawn east attacks no promotion: " << whitePawnEastAttacksNoPromotion << "\n";
-        // std::cout << "WhitePawnEastAttackTargets: " << whitePawnEastAttackTargets(currentPlayerPawns) << "\n";
-        while (whitePawnEastAttacksNoPromotion)
-        {
-            int lastPawn = std::countr_zero(whitePawnEastAttacksNoPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn - 7),
-                               squareForMove(lastPawn), Move::capture,
-                               Types::pawns};
-            (*n_moves)++;
-            whitePawnEastAttacksNoPromotion &= whitePawnEastAttacksNoPromotion - 1;
-        }
-        uint64_t whitePawnEastAttacksPromotion = (whitePawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer())) & ~not8Rank;
-        // std::cout << "White pawn east attacks promotion: " << whitePawnEastAttacksPromotion << "\n";
-        while (whitePawnEastAttacksPromotion)
-        {
-            int lastPawn = std::countr_zero(whitePawnEastAttacksPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn - 7),
-                               squareForMove(lastPawn),
-                               Move::knightPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn - 7),
-                               squareForMove(lastPawn),
-                               Move::bishopPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn - 7),
-                               squareForMove(lastPawn),
-                               Move::queenPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn - 7),
-                               squareForMove(lastPawn), Move::rookPromotionCapture,
-                               Types::pawns};
-            (*n_moves)++;
-            whitePawnEastAttacksPromotion &= whitePawnEastAttacksPromotion - 1;
-        }
-        uint64_t whitePawnEastAttackEnPassant = whitePawnEastAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
-        if (whitePawnEastAttackEnPassant)
-        {
-            int lastPawn = std::countr_zero(whitePawnEastAttackEnPassant);
-            moves[*n_moves] = {squareForMove(lastPawn - 7),
-                               squareForMove(lastPawn), Move::enPassant,
-                               Types::pawns};
-            (*n_moves)++;
-        }
-        uint64_t whitePawnWestAttacksNoPromotion = whitePawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer()) & not8Rank;
-        // std::cout << "WhitePawnWestAttackTargets: " << whitePawnWestAttackTargets(currentPlayerPawns) << "\n";
-        while (whitePawnWestAttacksNoPromotion)
-        {
-            int lastPawn = std::countr_zero(whitePawnWestAttacksNoPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn - 9),
-                               squareForMove(lastPawn), Move::capture,
-                               Types::pawns};
-            (*n_moves)++;
-            whitePawnWestAttacksNoPromotion &= whitePawnWestAttacksNoPromotion - 1;
-        }
-        uint64_t whitePawnWestAttacksPromotion = whitePawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer()) & ~not8Rank;
-        while (whitePawnWestAttacksPromotion)
-        {
-            int lastPawn = std::countr_zero(whitePawnWestAttacksPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn - 9),
-                               squareForMove(lastPawn),
-                               Move::knightPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn - 9),
-                               squareForMove(lastPawn),
-                               Move::bishopPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn - 9),
-                               squareForMove(lastPawn),
-                               Move::queenPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn - 9),
-                               squareForMove(lastPawn), Move::rookPromotionCapture,
-                               Types::pawns};
-            (*n_moves)++;
-            whitePawnWestAttacksPromotion &= whitePawnWestAttacksPromotion - 1;
-        }
-        uint64_t whitePawnWestAttackEnPassant = whitePawnWestAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
-        if (whitePawnWestAttackEnPassant)
-        {
-            int lastPawn = std::countr_zero(whitePawnWestAttackEnPassant);
-            moves[*n_moves] = {squareForMove(lastPawn - 9),
-                               squareForMove(lastPawn), Move::enPassant,
-                               Types::pawns};
-            (*n_moves)++;
-        }
     }
     if (position.getCurrentPlayer() == Types::black)
     {
-        uint64_t blackSinglePushNoPromotion = blackSinglePushTargets(currentPlayerPawns, position) & not1Rank;
-        while (blackSinglePushNoPromotion)
-        {
-            int lastPawn = std::countr_zero(blackSinglePushNoPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn + 8),
-                               squareForMove(lastPawn), Move::quiet,
-                               Types::pawns};
-            (*n_moves)++;
-            blackSinglePushNoPromotion &= blackSinglePushNoPromotion - 1;
-        }
         uint64_t blackSinglePushPromotion = blackSinglePushTargets(currentPlayerPawns, position) & ~not1Rank;
         while (blackSinglePushPromotion)
         {
@@ -577,98 +799,6 @@ void MoveGenerator::generatePawnPseudoLegalMoves(Move *moves,
                                Types::pawns};
             (*n_moves)++;
             blackSinglePushPromotion &= blackSinglePushPromotion - 1;
-        }
-        uint64_t blackDoublePush = blackDoublePushTargets(currentPlayerPawns, position);
-        while (blackDoublePush)
-        {
-            int lastPawn = std::countr_zero(blackDoublePush);
-            moves[*n_moves] = {squareForMove(lastPawn + 16),
-                               squareForMove(lastPawn), Move::doublePush,
-                               Types::pawns};
-            (*n_moves)++;
-            blackDoublePush &= blackDoublePush - 1;
-        }
-        uint64_t blackPawnEastAttacksNoPromotion = (blackPawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer())) & not1Rank;
-        while (blackPawnEastAttacksNoPromotion)
-        {
-            int lastPawn = std::countr_zero(blackPawnEastAttacksNoPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn + 9),
-                               squareForMove(lastPawn), Move::capture,
-                               Types::pawns};
-            (*n_moves)++;
-            blackPawnEastAttacksNoPromotion &= blackPawnEastAttacksNoPromotion - 1;
-        }
-        uint64_t blackPawnEastAttacksPromotion = (blackPawnEastAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer())) & ~not1Rank;
-        while (blackPawnEastAttacksPromotion)
-        {
-            int lastPawn = std::countr_zero(blackPawnEastAttacksPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn + 9),
-                               squareForMove(lastPawn),
-                               Move::knightPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn + 9),
-                               squareForMove(lastPawn),
-                               Move::bishopPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn + 9),
-                               squareForMove(lastPawn),
-                               Move::queenPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn + 9),
-                               squareForMove(lastPawn), Move::rookPromotionCapture,
-                               Types::pawns};
-            (*n_moves)++;
-            blackPawnEastAttacksPromotion &= blackPawnEastAttacksPromotion - 1;
-        }
-        uint64_t blackPawnEastAttackEnPassant = blackPawnEastAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
-        if (blackPawnEastAttackEnPassant)
-        {
-            int lastPawn = std::countr_zero(blackPawnEastAttackEnPassant);
-            moves[*n_moves] = {squareForMove(lastPawn + 9),
-                               squareForMove(lastPawn), Move::enPassant,
-                               Types::pawns};
-            (*n_moves)++;
-        }
-        uint64_t blackPawnWestAttacksNoPromotion = blackPawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer()) & not1Rank;
-        while (blackPawnWestAttacksNoPromotion)
-        {
-            int lastPawn = std::countr_zero(blackPawnWestAttacksNoPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn + 7),
-                               squareForMove(lastPawn), Move::capture,
-                               Types::pawns};
-            (*n_moves)++;
-            blackPawnWestAttacksNoPromotion &= blackPawnWestAttacksNoPromotion - 1;
-        }
-        uint64_t blackPawnWestAttacksPromotion = blackPawnWestAttackTargets(currentPlayerPawns) & position.getPieceSet(position.getOtherPlayer()) & ~not1Rank;
-        while (blackPawnWestAttacksPromotion)
-        {
-            int lastPawn = std::countr_zero(blackPawnWestAttacksPromotion);
-            moves[*n_moves] = {squareForMove(lastPawn + 7),
-                               squareForMove(lastPawn),
-                               Move::knightPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn + 7),
-                               squareForMove(lastPawn),
-                               Move::bishopPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn + 7),
-                               squareForMove(lastPawn),
-                               Move::queenPromotionCapture, Types::pawns};
-            (*n_moves)++;
-            moves[*n_moves] = {squareForMove(lastPawn + 7),
-                               squareForMove(lastPawn), Move::rookPromotionCapture,
-                               Types::pawns};
-            (*n_moves)++;
-            blackPawnWestAttacksPromotion &= blackPawnWestAttacksPromotion - 1;
-        }
-        uint64_t blackPawnWestAttackEnPassant = blackPawnWestAttackTargets(currentPlayerPawns) & position.getEnPassantSquare();
-        if (blackPawnWestAttackEnPassant)
-        {
-            int lastPawn = std::countr_zero(blackPawnWestAttackEnPassant);
-            moves[*n_moves] = {squareForMove(lastPawn + 7),
-                               squareForMove(lastPawn), Move::enPassant,
-                               Types::pawns};
-            (*n_moves)++;
         }
     }
 }

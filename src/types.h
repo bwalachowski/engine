@@ -11,8 +11,8 @@ namespace Types
         knights,
         bishops,
         rooks,
-        kings,
-        queens
+        queens,
+        kings
     };
 };
 

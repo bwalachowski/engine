@@ -21,6 +21,7 @@ void Board::init()
     // pieces[Types::rooks] = 0x8100000000000081;
     // pieces[Types::knights] = 0x4000000000000c40;
     // pieces[Types::pawns] = 0xd720000000e300;
+    nPieces = 14;
 }
 
 void Board::print()
@@ -33,6 +34,7 @@ void Board::print()
 
 Board::Board(std::string fen)
 {
+    int nPieces = 0;
     // Initialize all pieces to 0
     for (int i = 0; i < 8; ++i)
     {
@@ -65,18 +67,22 @@ Board::Board(std::string fen)
             case 'N':
                 pieces[Types::white] |= square;
                 pieces[Types::knights] |= square;
+                nPieces++;
                 break;
             case 'B':
                 pieces[Types::white] |= square;
                 pieces[Types::bishops] |= square;
+                nPieces++;
                 break;
             case 'R':
                 pieces[Types::white] |= square;
                 pieces[Types::rooks] |= square;
+                nPieces++;
                 break;
             case 'Q':
                 pieces[Types::white] |= square;
                 pieces[Types::queens] |= square;
+                nPieces++;
                 break;
             case 'K':
                 pieces[Types::white] |= square;
@@ -89,18 +95,22 @@ Board::Board(std::string fen)
             case 'n':
                 pieces[Types::black] |= square;
                 pieces[Types::knights] |= square;
+                nPieces++;
                 break;
             case 'b':
                 pieces[Types::black] |= square;
                 pieces[Types::bishops] |= square;
+                nPieces++;
                 break;
             case 'r':
                 pieces[Types::black] |= square;
                 pieces[Types::rooks] |= square;
+                nPieces++;
                 break;
             case 'q':
                 pieces[Types::black] |= square;
                 pieces[Types::queens] |= square;
+                nPieces++;
                 break;
             case 'k':
                 pieces[Types::black] |= square;
@@ -135,6 +145,10 @@ void Board::makeMove(Move move, Types::PieceEnum color, int depth)
             {
                 // std::cout << "Capturing piece: " << static_cast<Types::PieceEnum>(i) << "\n";
                 pieces[i] &= ~toSquare;
+                if (i != Types::pawns)
+                {
+                    nPieces--;
+                }
                 capturedPieces[depth] = (static_cast<Types::PieceEnum>(i));
                 break;
             }

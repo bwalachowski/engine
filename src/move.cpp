@@ -3,7 +3,13 @@
 #include <string>
 
 Move::Move(uint32_t from, uint32_t to, uint32_t flags, Types::PieceEnum piece)
-    : piece(piece)
+    : piece(piece), pieceTaken(Types::white)
+{
+    move = ((flags & 0xf) << 12) | ((from & 0x3f) << 6) | (to & 0x3f);
+}
+
+Move::Move(uint32_t from, uint32_t to, uint32_t flags, Types::PieceEnum piece, Types::PieceEnum pieceTaken)
+    : piece(piece), pieceTaken(pieceTaken)
 {
     move = ((flags & 0xf) << 12) | ((from & 0x3f) << 6) | (to & 0x3f);
 }

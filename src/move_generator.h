@@ -36,18 +36,32 @@ class MoveGenerator
 
     uint64_t behind[64][64];
 
-    void generateBishopPseudoLegalMoves(Move *moves,
-                                        Position position, int *n_moves);
-    void generateRookPseudoLegalMoves(Move *moves,
-                                      Position position, int *n_moves);
-    void generateQueenPseudoLegalMoves(Move *moves,
-                                       Position position, int *n_moves);
-    void generateKnightPseudoLegalMoves(Move *moves,
-                                        Position position, int *n_moves);
-    void generateKingPseudoLegalMoves(Move *moves,
-                                      Position position, int *n_moves);
-    void generatePawnPseudoLegalMoves(Move *moves,
-                                      Position position, int *n_moves);
+    void generateBishopPseudoLegalQuietMoves(Move *moves,
+                                             Position position, int *n_moves);
+    void generateRookPseudoLegalQuietMoves(Move *moves,
+                                           Position position, int *n_moves);
+    void generateQueenPseudoLegalQuietMoves(Move *moves,
+                                            Position position, int *n_moves);
+    void generateKnightPseudoLegalQuietMoves(Move *moves,
+                                             Position position, int *n_moves);
+    void generateKingPseudoLegalQuietMoves(Move *moves,
+                                           Position position, int *n_moves);
+    void generatePawnPseudoLegalQuietMoves(Move *moves,
+                                           Position position, int *n_moves);
+    void generatePawnPseudoLegalCapturesOnPiece(Move *moves,
+                                                Position position, int *n_moves, Types::PieceEnum piece);
+    void generateKnightPseudoLegalCapturesOnPiece(Move *moves,
+                                                  Position position, int *n_moves, Types::PieceEnum piece);
+    void generateBishopPseudoLegalCapturesOnPiece(Move *moves,
+                                                  Position position, int *n_moves, Types::PieceEnum piece);
+    void generateRookPseudoLegalCapturesOnPiece(Move *moves,
+                                                Position position, int *n_moves, Types::PieceEnum piece);
+    void generateQueenPseudoLegalCapturesOnPiece(Move *moves,
+                                                 Position position, int *n_moves, Types::PieceEnum piece);
+    void generateKingPseudoLegalMovesCapturesOnPiece(Move *moves,
+                                                     Position position, int *n_moves, Types::PieceEnum piece);
+    void generatePawnPseudoLegalPromotions(Move *moves,
+                                           Position position, int *n_moves);
 
     // void generatePseudoLegalMoves(uint32_t fromSquare, uint64_t movesToMake, Move *moves, int *n_moves, Types::PieceEnum movedPiece, Move::flagEnum flag, Types::PieceEnum capturedPiece = Types::white);
 
@@ -115,6 +129,7 @@ public:
     bool attacked(uint64_t square, Position position, Types::PieceEnum byColor);
     int generateLegalMoves(Position position, Move *moves);
     int generatePseudoLegalMoves(Position position, Move *moves);
+    int generatePseudoLegalCapturesAndPromotions(Position position, Move *moves);
     int checkMobility(Position position, Types::PieceEnum color);
     int checkPseudoLegalMobility(Position position, Types::PieceEnum color);
     uint32_t squareForMove(int square);

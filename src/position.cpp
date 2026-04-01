@@ -16,33 +16,33 @@ int Position::prevRepetitionIndices[64] = {0};
 bool Position::hashesInitialized = false;
 int Position::prevPlies[64] = {0};
 
-Position::Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights)
-    : board(board),
-      currentPlayer(currentPlayer), castlingRights(castlingRights)
-{
-    plySinceCaptureOrPawnMove = 0;
-    enPassantSquare = 0;
-    depth = 0;
-    repetitionIndex = 0;
-    initializeHashNumbers();
-    repetitionTable[repetitionIndex] = getZobristHash();
+// Position::Position(Board board, Types::PieceEnum currentPlayer, uint8_t castlingRights)
+//     : board(board),
+//       currentPlayer(currentPlayer), castlingRights(castlingRights)
+// {
+//     plySinceCaptureOrPawnMove = 0;
+//     enPassantSquare = 0;
+//     depth = 0;
+//     repetitionIndex = 0;
+//     initializeHashNumbers();
+//     repetitionTable[repetitionIndex] = getZobristHash();
 
-    prevCastlingRights[depth] = castlingRights;
-    prevEnPassantSquares[depth] = enPassantSquare;
-    prevRepetitionIndices[depth] = repetitionIndex;
-}
+//     prevCastlingRights[depth] = castlingRights;
+//     prevEnPassantSquares[depth] = enPassantSquare;
+//     prevRepetitionIndices[depth] = repetitionIndex;
+// }
 
-Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights) : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights)
-{
-    plySinceCaptureOrPawnMove = 0;
-    depth = 0;
-    prevCastlingRights[depth] = castlingRights;
-    prevEnPassantSquares[depth] = enPassantSquare;
-    repetitionIndex = 0;
-    prevRepetitionIndices[depth] = repetitionIndex;
-    initializeHashNumbers();
-    repetitionTable[repetitionIndex] = getZobristHash();
-}
+// Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights) : board(board), enPassantSquare(enPassantSquare), currentPlayer(currentPlayer), castlingRights(castlingRights)
+// {
+//     plySinceCaptureOrPawnMove = 0;
+//     depth = 0;
+//     prevCastlingRights[depth] = castlingRights;
+//     prevEnPassantSquares[depth] = enPassantSquare;
+//     repetitionIndex = 0;
+//     prevRepetitionIndices[depth] = repetitionIndex;
+//     initializeHashNumbers();
+//     repetitionTable[repetitionIndex] = getZobristHash();
+// }
 
 Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum currentPlayer, uint8_t castlingRights, int repetitionIndex, int depth, uint64_t hash, int plySinceCaptureOrPawnMove) : board(board),
                                                                                                                                                                                                   enPassantSquare(enPassantSquare),
@@ -51,7 +51,6 @@ Position::Position(Board board, uint64_t enPassantSquare, Types::PieceEnum curre
                                                                                                                                                                                                   repetitionIndex(repetitionIndex),
                                                                                                                                                                                                   depth(depth),
                                                                                                                                                                                                   plySinceCaptureOrPawnMove(plySinceCaptureOrPawnMove)
-
 {
     prevCastlingRights[depth] = castlingRights;
     prevEnPassantSquares[depth] = enPassantSquare;
@@ -239,7 +238,7 @@ Move Position::getMoveFromLongAlgebraicNotation(std::string longAlgebraicNotatio
     uint32_t flags = Move::quiet;
     Types::PieceEnum piece = Types::pawns;
 
-    for (int i = Types::pawns; i <= Types::queens; ++i)
+    for (int i = Types::pawns; i <= Types::kings; ++i)
     {
         if (fromSquare & getPieceSet(static_cast<Types::PieceEnum>(i)))
         {
